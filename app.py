@@ -5,8 +5,8 @@ import os
 import glob
 
 # 1. 페이지 및 타이틀 설정
-st.set_page_config(page_title="사내 규정 통합 검색 챗봇", page_icon="📚")
-st.title("📚 사내 통합 규정집 질의응답 챗봇")
+st.set_page_config(page_title="대구경북지사 기술업무 검색 챗봇", page_icon="📚")
+st.title("📚 기술업무 질의응답 챗봇")
 
 # 2. Gemini API 키 확인
 api_key = st.secrets.get("GEMINI_API_KEY")
@@ -70,7 +70,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # 5. 사용자 질문 처리
-if user_input := st.chat_input("규정이나 법률에 대해 질문하세요 (예: 연차휴가 규정 알려줘):"):
+if user_input := st.chat_input("규정이나 지침에 대해 질문하세요 (예: 방재근무 기준을 알려줘):"):
     # 사용자 질문 화면 표시
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
