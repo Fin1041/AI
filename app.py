@@ -136,9 +136,7 @@ if loaded_files:
 
         welcome_message += f"📋 {name}\n\n"
 
-    else:
-
-        welcome_message += "• 등록된 기술업무 문서가 없습니다.\n"
+  
 
     welcome_message += """
 
