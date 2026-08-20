@@ -215,47 +215,61 @@ if user_input:
     # --------------------------------------
 with st.chat_message("assistant"):
 
-    with st.spinner("📚 질문관련 답변 검색 중입니다..."):
+    with st.spinner("📚 질문관련 답변을 검색하고 있습니다..."):
 
         answer = None
 
-        for attempt in range(3):
+        models = [
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite"
+        ]
+
+        for model_name in models:
 
             try:
 
                 response = client.models.generate_content(
-                    model="gemini-3.6-flash",
+                    model=model_name,
                     contents=prompt
                 )
 
-                answer = response.text
-
-                if answer:
+                if response.text:
+                    answer = response.text
                     break
 
-            except Exception:
+            except Exception as e:
 
-                if attempt < 2:
-                    import time
-                    time.sleep(2 ** attempt)
+                error_text = str(e)
 
-                else:
-                    answer = (
-                        "⚠️ 현재 Gemini AI 서버가 일시적으로 "
-                        "응답하지 않습니다.\n\n"
-                        "잠시 후 다시 질문해 주세요."
-                    )
+                # 503이면 다음 모델로 자동 전환
+                if "503" in error_text or "UNAVAILABLE" in error_text:
+                    continue
 
-        if answer:
-            st.markdown(answer)
+                # 그 외 오류는 바로 표시
+                answer = (
+                    "⚠️ Gemini AI 오류가 발생했습니다.\n\n"
+                    f"오류 내용: {error_text}"
+                )
+                break
+
+        # 모든 모델이 실패한 경우
+        if not answer:
+
+            answer = (
+                "⚠️ 현재 AI 서버가 일시적으로 혼잡합니다.\n\n"
+                "잠시 후 다시 질문해 주세요."
+            )
+
+        st.markdown(answer)
 
 
-    # --------------------------------------
-    # 답변을 대화 기록에 저장
-    # --------------------------------------
-    st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "content": answer
-        }
-    )
+# ==========================================
+# 답변 저장
+# ==========================================
+st.session_state.messages.append(
+    {
+        "role": "assistant",
+        "content": answer
+    }
+)
