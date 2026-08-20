@@ -130,11 +130,11 @@ if "messages" not in st.session_state:
 """
 
     # PDF 파일명 자동 표시
-    if loaded_files:
+if loaded_files:
 
-        for name in loaded_files:
+    for name in loaded_files:
 
-            welcome_message += f"• {name}\n"
+        welcome_message += f"• {name}\n\n"
 
     else:
 
