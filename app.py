@@ -215,7 +215,7 @@ if user_input:
     # --------------------------------------
 with st.chat_message("assistant"):
 
-    with st.spinner("📚 여러 규정집을 검색 중입니다..."):
+    with st.spinner("📚 질문관련 답변 검색 중입니다..."):
 
         answer = None
 
