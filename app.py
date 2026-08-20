@@ -233,18 +233,21 @@ with st.chat_message("assistant"):
                 if answer:
                     break
 
-            except Exception as e:
+            except Exception:
 
                 if attempt < 2:
+                    import time
                     time.sleep(2 ** attempt)
+
                 else:
                     answer = (
-                        "⚠️ 현재 Gemini AI 서버에 일시적으로 "
-                        "접속이 원활하지 않습니다.\n\n"
+                        "⚠️ 현재 Gemini AI 서버가 일시적으로 "
+                        "응답하지 않습니다.\n\n"
                         "잠시 후 다시 질문해 주세요."
                     )
 
-        st.markdown(answer)
+        if answer:
+            st.markdown(answer)
 
 
     # --------------------------------------
