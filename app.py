@@ -14,7 +14,7 @@ if not api_key:
     st.error("Gemini API 키가 설정되지 않았습니다. Streamlit Secrets 설정을 확인해주세요.")
     st.stop()
 
-genai.configure(api_key=api_key)
+client = genai.Client(api_key=api_key)
 
 # 3. 모든 PDF 파일에서 텍스트를 추출하는 함수 (캐싱 처리로 속도 최적화)
 @st.cache_data
