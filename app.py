@@ -5,8 +5,8 @@ import os
 import glob
 
 # 1. 페이지 및 타이틀 설정
-st.set_page_config(page_title="대구경북지사 기술업무 검색 챗봇", page_icon="📚")
-st.title("📚 기술업무 질의응답 챗봇")
+st.set_page_config(page_title="주택관리공단 업무 챗봇", page_icon="📚")
+st.title("📚 대구경북지사 기술업무 AI 챗봇")
 
 # 2. Gemini API 키 확인
 api_key = st.secrets.get("GEMINI_API_KEY")
