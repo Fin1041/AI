@@ -122,7 +122,34 @@ if not document_text:
 # ==========================================
 if "messages" not in st.session_state:
 
-    st.session_state.messages = []
+    # 처음 접속했을 때 보여줄 안내문
+    welcome_message = f"""
+안녕하십니까.  
+저는 **대구경북지사 기술업무 담당 AI 챗봇**입니다.
+
+📚 **다음 기술업무 관련 규정 및 자료를 바탕으로 답변해 드립니다.**
+
+"""
+
+    # PDF 파일명 자동으로 추가
+    if loaded_files:
+
+        for name in loaded_files:
+            welcome_message += f"• {name}\n"
+
+    welcome_message += """
+궁금하신 기술업무에 대해 질문해 주시면
+**업로드된 문서에 근거하여 답변**해 드리겠습니다.
+
+※ 문서에 명시되지 않은 내용은 임의로 답변하지 않습니다.
+"""
+
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": welcome_message
+        }
+    ]
 
 
 # ==========================================
