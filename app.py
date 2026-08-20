@@ -94,7 +94,7 @@ if user_input := st.chat_input("규정이나 지침에 대해 질문하세요 (�
 
     with st.chat_message("assistant"):
         with st.spinner("여러 규정집을 검색 중입니다..."):
-            model = genai.GenerativeModel('gemini-2.5-pro')
+            model = genai.GenerativeModel('gemini-1.5-flash')
             response = model.generate_content(prompt)
             st.markdown(response.text)
 
