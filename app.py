@@ -3,7 +3,7 @@ from google import genai
 from pypdf import PdfReader
 import os
 import glob
-
+import time
 
 # ==========================================
 # 1. 페이지 설정
@@ -213,9 +213,13 @@ if user_input:
     # --------------------------------------
     # Gemini 답변
     # --------------------------------------
-    with st.chat_message("assistant"):
+with st.chat_message("assistant"):
 
-        with st.spinner("📚 여러 규정집을 검색 중입니다..."):
+    with st.spinner("📚 여러 규정집을 검색 중입니다..."):
+
+        answer = None
+
+        for attempt in range(3):
 
             try:
 
@@ -226,20 +230,21 @@ if user_input:
 
                 answer = response.text
 
-                if not answer:
-
-                    answer = "AI로부터 답변을 받지 못했습니다."
-
-                st.markdown(answer)
+                if answer:
+                    break
 
             except Exception as e:
 
-                answer = (
-                    "⚠️ Gemini AI 응답 중 오류가 발생했습니다.\n\n"
-                    f"오류 내용: `{e}`"
-                )
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+                else:
+                    answer = (
+                        "⚠️ 현재 Gemini AI 서버에 일시적으로 "
+                        "접속이 원활하지 않습니다.\n\n"
+                        "잠시 후 다시 질문해 주세요."
+                    )
 
-                st.error(answer)
+        st.markdown(answer)
 
 
     # --------------------------------------
