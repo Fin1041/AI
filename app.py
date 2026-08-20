@@ -134,7 +134,7 @@ if loaded_files:
 
     for name in loaded_files:
 
-        welcome_message += f"• {name}\n\n"
+        welcome_message += f"📋 {name}\n\n"
 
     else:
 
