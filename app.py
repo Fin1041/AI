@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from pypdf import PdfReader
 import os
 import glob
@@ -14,7 +14,7 @@ if not api_key:
     st.error("Gemini API 키가 설정되지 않았습니다. Streamlit Secrets 설정을 확인해주세요.")
     st.stop()
 
-genai.configure(api_key=api_key)
+client = genai.Client(api_key=api_key)
 
 # 3. 모든 PDF 파일에서 텍스트를 추출하는 함수 (캐싱 처리로 속도 최적화)
 @st.cache_data
@@ -94,8 +94,11 @@ if user_input := st.chat_input("규정이나 지침에 대해 질문하세요 (�
 
     with st.chat_message("assistant"):
         with st.spinner("여러 규정집을 검색 중입니다..."):
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(prompt)
-            st.markdown(response.text)
+            response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=prompt
+)
+
+st.markdown(response.text)
 
     st.session_state.messages.append({"role": "assistant", "content": response.text})
