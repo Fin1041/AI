@@ -10,6 +10,7 @@ st.title("📚 대구경북 기술업무 AI 챗봇")
 
 # 2. Gemini API 키 확인
 api_key = st.secrets.get("GEMINI_API_KEY")
+client = genai.Client(api_key=api_key)
 if not api_key:
     st.error("Gemini API 키가 설정되지 않았습니다. Streamlit Secrets 설정을 확인해주세요.")
     st.stop()
@@ -94,8 +95,11 @@ if user_input := st.chat_input("규정이나 법률에 대해 질문하세요 (�
 
     with st.chat_message("assistant"):
         with st.spinner("여러 규정집을 검색 중입니다..."):
-            model = genai.GenerativeModel('gemini-3.6-flash')
-            response = model.generate_content(prompt)
-            st.markdown(response.text)
+           response = client.models.generate_content(
+    model="gemini-3.6-flash",
+    contents=prompt
+)
+
+st.markdown(response.text)
 
     st.session_state.messages.append({"role": "assistant", "content": response.text})
