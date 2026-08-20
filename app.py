@@ -103,25 +103,6 @@ document_text, loaded_files = load_all_pdfs_text()
 # ==========================================
 # 6. 사이드바
 # ==========================================
-with st.sidebar:
-
-    st.header("📄 학습된 규정집 목록")
-
-    if loaded_files:
-
-        st.success(
-            f"총 {len(loaded_files)}개의 PDF 문서를 참조 중입니다."
-        )
-
-        for name in loaded_files:
-
-            st.write(f"• {name}")
-
-    else:
-
-        st.warning(
-            "업로드된 PDF 파일이 없습니다."
-        )
 
 
 # ==========================================
