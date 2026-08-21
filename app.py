@@ -21,6 +21,24 @@ st.set_page_config(
     layout="centered"
 )
 
+# ==================================================
+# Streamlit 우측 상단 메뉴 숨기기
+# ==================================================
+
+st.markdown("""
+<style>
+/* 우측 상단 GitHub 아이콘 및 메뉴 숨기기 */
+[data-testid="stToolbar"] {
+    visibility: hidden;
+}
+
+/* 우측 상단 전체 영역 숨기기 */
+[data-testid="stDecoration"] {
+    visibility: hidden;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📚 대구경북 기술업무 AI 챗봇")
 
 
