@@ -362,52 +362,65 @@ if user_input:
         )
 
 
-    # ----------------------------------------------
-    # AI 답변
-    # ----------------------------------------------
+# ==========================================
+# AI 답변
+# ==========================================
 
-    with st.chat_message(
-        "assistant"
-    ):
+with st.chat_message("assistant"):
 
-        # ==========================================
+    # ------------------------------------------
+    # 진행상황 표시
+    # ------------------------------------------
+
+    status = st.status(
+        "📚 관련 규정을 검색하고 있습니다...",
+        expanded=True
+    )
+
+    try:
+
+        # ======================================
         # ① 벡터 검색
-        # ==========================================
+        # ======================================
 
-        with st.spinner(
-            "🔎 관련 규정을 검색하고 있습니다..."
-        ):
+        search_results = search_documents(
+            user_input,
+            top_k=6
+        )
 
-            search_results = search_documents(
-                user_input,
-                top_k=6
-            )
-
-
-        # ==========================================
-        # ② 검색 결과가 없는 경우
-        # ==========================================
+        # ======================================
+        # ② 검색 결과 확인
+        # ======================================
 
         if not search_results:
+
+            status.update(
+                label="❌ 관련 규정을 찾지 못했습니다.",
+                state="complete",
+                expanded=False
+            )
 
             answer = (
                 "해당 내용은 업로드된 "
                 "기술업무 문서에 명시되어 있지 않습니다."
             )
 
-            st.markdown(
-                answer
-            )
-
+            st.markdown(answer)
 
         else:
 
-            # ======================================
+            # 검색된 규정 개수 표시
+            status.update(
+                label=f"✅ 관련 규정 {len(search_results)}건을 찾았습니다.",
+                state="running",
+                expanded=True
+            )
+
+            # ==================================
             # ③ 검색 결과 정리
-            # ======================================
+            # ==================================
 
             context_parts = []
-
 
             for i, result in enumerate(
                 search_results,
@@ -432,17 +445,13 @@ if user_input:
 """
                 )
 
-
-            search_context = (
-                "\n".join(
-                    context_parts
-                )
+            search_context = "\n".join(
+                context_parts
             )
 
-
-            # ======================================
+            # ==================================
             # ④ Gemini 프롬프트
-            # ======================================
+            # ==================================
 
             prompt = f"""
 너는 주택관리공단 대구경북지사의
@@ -450,8 +459,6 @@ if user_input:
 
 사용자의 질문에 대해 아래 [검색된 규정 문서]
 내용만을 근거로 답변해야 한다.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [답변 원칙]
 
@@ -504,55 +511,51 @@ if user_input:
 
 """
 
+            # ==================================
+            # ⑤ Gemini 답변 작성 시작
+            # ==================================
 
-            # ======================================
-            # ⑤ Gemini 호출
-            # ======================================
+            status.update(
+                label="🤖 관련 규정을 확인했습니다. 답변을 작성하고 있습니다...",
+                state="running",
+                expanded=True
+            )
 
             answer = None
-
 
             for attempt in range(3):
 
                 try:
 
-                    response = (
-                        client.models.generate_content(
-                            model="gemini-3.6-flash",
-                            contents=prompt
-                        )
+                    response = client.models.generate_content(
+                        model="gemini-3.6-flash",
+                        contents=prompt
                     )
-
 
                     answer = response.text
 
-
                     if answer:
-
                         break
-
 
                 except Exception as e:
 
                     error_text = str(e)
 
-
                     if (
-                        "503"
-                        in error_text
-                        or
-                        "UNAVAILABLE"
-                        in error_text
+                        "503" in error_text
+                        or "UNAVAILABLE" in error_text
                     ):
 
                         if attempt < 2:
 
-                            time.sleep(
-                                2 ** attempt
+                            status.update(
+                                label=f"🔄 AI 서버 재시도 중... ({attempt + 1}/3)",
+                                state="running",
+                                expanded=True
                             )
 
+                            time.sleep(2 ** attempt)
                             continue
-
 
                     answer = (
                         "⚠️ Gemini AI 오류가 발생했습니다.\n\n"
@@ -561,10 +564,9 @@ if user_input:
 
                     break
 
-
-            # ======================================
-            # ⑥ 모든 재시도 실패
-            # ======================================
+            # ==================================
+            # ⑥ 답변 완료
+            # ==================================
 
             if not answer:
 
@@ -574,31 +576,27 @@ if user_input:
                     "잠시 후 다시 질문해 주세요."
                 )
 
+            status.update(
+                label="✅ 답변 작성이 완료되었습니다.",
+                state="complete",
+                expanded=False
+            )
 
-            # ======================================
+            # ==================================
             # ⑦ 답변 표시
-            # ======================================
+            # ==================================
 
-            st.markdown(
-                answer
-            )
+            st.markdown(answer)
 
+            # ==================================
+            # ⑧ 답변 근거
+            # ==================================
 
-            # ======================================
-            # ⑧ 답변 근거 표시
-            # ======================================
+            st.markdown("---")
 
-            st.markdown(
-                "---"
-            )
-
-            st.markdown(
-                "### 📚 답변 근거"
-            )
-
+            st.markdown("### 📚 답변 근거")
 
             shown_sources = set()
-
 
             for result in search_results:
 
@@ -607,22 +605,30 @@ if user_input:
                     result["page"]
                 )
 
-
                 if source_key in shown_sources:
-
                     continue
 
-
-                shown_sources.add(
-                    source_key
-                )
-
+                shown_sources.add(source_key)
 
                 st.markdown(
                     f"📋 **{result['filename']}** "
                     f"— {result['page']}페이지"
                 )
 
+    except Exception as e:
+
+        status.update(
+            label="❌ 검색 중 오류가 발생했습니다.",
+            state="error",
+            expanded=True
+        )
+
+        answer = (
+            "⚠️ 오류가 발생했습니다.\n\n"
+            f"`{str(e)}`"
+        )
+
+        st.error(answer)
 
     # ==================================================
     # 13. 답변 저장
