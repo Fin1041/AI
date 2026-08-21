@@ -433,23 +433,23 @@ with st.chat_message("assistant"):
                 start=1
             ):
 
-                context_parts.append(
-                    f"""
+               context_parts.append(
+    f"""
 [검색결과 {i}]
 
 문서명:
-{result["filename"]}
+{str(result.get("filename") or "파일명 없음")}
 
 페이지:
-{result["page"]}페이지
+{str(result.get("page") or "페이지 정보 없음")}페이지
 
 검색 관련도:
-{result["score"]:.3f}
+{float(result.get("score") or 0):.3f}
 
 내용:
-{result["text"]}
+{str(result.get("text") or "")}
 """
-                )
+)
 
             search_context = "\n".join(
                 context_parts
