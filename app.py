@@ -177,45 +177,41 @@ with st.spinner(
 # 8. 벡터 검색 함수
 # ==================================================
 
-def search_documents(
-    query,
-    top_k=6
-):
+def search_documents(query, top_k=6):
+
+    # 질문이 비어 있는 경우 방지
+    if query is None:
+        query = ""
+
+    query = str(query).strip()
+
+    if not query:
+        return []
 
     # ----------------------------------------------
     # 사용자 질문을 벡터로 변환
     # ----------------------------------------------
 
-    query_embedding = (
-        embedding_model.encode(
-            [
-                "query: " + query
-            ],
-            normalize_embeddings=True
-        )
+    query_embedding = embedding_model.encode(
+        ["query: " + query],
+        normalize_embeddings=True
     )
-
 
     query_embedding = np.asarray(
         query_embedding,
         dtype="float32"
     )
 
-
     # ----------------------------------------------
     # FAISS 검색
     # ----------------------------------------------
 
-    scores, indices = (
-        vector_index.search(
-            query_embedding,
-            top_k
-        )
+    scores, indices = vector_index.search(
+        query_embedding,
+        top_k
     )
 
-
     results = []
-
 
     for score, idx in zip(
         scores[0],
@@ -223,24 +219,34 @@ def search_documents(
     ):
 
         if idx < 0:
-
             continue
 
+        # 잘못된 인덱스 방지
+        if int(idx) >= len(documents):
+            continue
 
-        result = documents[
-            int(idx)
-        ].copy()
+        result = documents[int(idx)].copy()
 
-
-        result["score"] = float(
-            score
+        # None 값 방지
+        result["filename"] = str(
+            result.get("filename") or "파일명 없음"
         )
 
-
-        results.append(
-            result
+        result["page"] = str(
+            result.get("page") or "페이지 정보 없음"
         )
 
+        result["text"] = str(
+            result.get("text") or ""
+        )
+
+        result["score"] = float(score)
+
+        # 내용이 아예 없는 검색 결과는 제외
+        if not result["text"].strip():
+            continue
+
+        results.append(result)
 
     return results
 
