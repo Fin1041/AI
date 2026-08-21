@@ -796,58 +796,7 @@ if user_input:
                 )
 
 
-                # ==================================
-                # 답변 근거
-                # ==================================
-
-                st.markdown("---")
-
-                st.markdown(
-                    "### 📚 답변 근거"
-                )
-
-
-                shown_sources = set()
-
-
-                for result in search_results:
-
-                    filename = str(
-                        result.get(
-                            "filename",
-                            "파일명 없음"
-                        )
-                    )
-
-
-                    page = str(
-                        result.get(
-                            "page",
-                            "페이지 정보 없음"
-                        )
-                    )
-
-
-                    source_key = (
-                        filename,
-                        page
-                    )
-
-
-                    if source_key in shown_sources:
-
-                        continue
-
-
-                    shown_sources.add(
-                        source_key
-                    )
-
-
-                    st.markdown(
-                        f"📋 **{filename}** "
-                        f"— {page}페이지"
-                    )
+              
 
 
         # ==========================================
