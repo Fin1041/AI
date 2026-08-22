@@ -50,75 +50,120 @@ st.markdown(
        상단 헤더
     --------------------------------------------- */
 
-    .hero {
-        background: linear-gradient(
-            135deg,
-            #0756c9 0%,
-            #1976e8 55%,
-            #48a1f5 100%
-        );
+.hero {
 
-        border-radius: 0 0 28px 28px;
+    background: linear-gradient(
+        135deg,
+        #0756c9 0%,
+        #1976e8 55%,
+        #48a1f5 100%
+    );
 
-        padding: 28px 28px 32px 28px;
+    border-radius: 0 0 24px 24px;
 
-        color: white;
+    padding: 18px 24px;
 
-        margin-bottom: 18px;
+    color: white;
 
-        box-shadow:
-            0 8px 25px rgba(0, 82, 180, 0.18);
-    }
+    margin-bottom: 18px;
 
-
-    .hero-top {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-
-        font-size: 16px;
-        font-weight: 700;
-
-        margin-bottom: 28px;
-    }
+    box-shadow:
+        0 6px 18px rgba(0, 82, 180, 0.16);
+}
 
 
-    .hero-logo {
-        width: 52px;
-        height: 52px;
+/* 한 줄 배치 */
 
-        border-radius: 16px;
+.hero-top {
 
-        background: rgba(255,255,255,0.95);
+    display: flex;
 
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    align-items: center;
 
-        font-size: 30px;
+    gap: 10px;
 
-        box-shadow:
-            0 4px 12px rgba(0,0,0,0.15);
-    }
+    min-height: 50px;
+
+}
 
 
-    .hero-title {
-        font-size: 38px;
-        font-weight: 800;
+/* 로고 */
 
-        letter-spacing: -1.5px;
+.hero-logo {
 
-        margin-bottom: 12px;
-    }
+    width: 46px;
+    height: 46px;
+
+    border-radius: 13px;
+
+    background: rgba(255,255,255,0.96);
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    font-size: 26px;
+
+    flex-shrink: 0;
+
+    box-shadow:
+        0 3px 10px rgba(0,0,0,0.12);
+}
 
 
-    .hero-subtitle {
-        font-size: 16px;
-        line-height: 1.8;
+/* 주택관리공단 */
 
-        opacity: 0.95;
-    }
+.hero-title-small {
 
+    font-size: 16px;
+
+    font-weight: 800;
+
+    line-height: 1.25;
+
+    white-space: nowrap;
+}
+
+
+/* 대구경북지사 */
+
+.hero-title-small span {
+
+    display: block;
+
+    font-size: 11px;
+
+    margin-top: 2px;
+
+    opacity: 0.9;
+}
+
+
+/* 구분선 */
+
+.hero-divider {
+
+    font-size: 24px;
+
+    opacity: 0.6;
+
+    margin-left: 4px;
+}
+
+
+/* 기술업무 AI 챗봇 */
+
+.hero-chat-title {
+
+    font-size: 25px;
+
+    font-weight: 800;
+
+    letter-spacing: -1px;
+
+    white-space: nowrap;
+}
 
     /* ---------------------------------------------
        안내 카드
@@ -466,26 +511,18 @@ st.html(
                 📚
             </div>
 
-            <div>
-                <div>주택관리공단</div>
-                <div style="font-size:12px; opacity:0.9;">
-                    대구경북지사
-                </div>
+            <div class="hero-title-small">
+                주택관리공단
+                <span>대구경북지사</span>
             </div>
 
-        </div>
+            <div class="hero-divider">
+                |
+            </div>
 
-
-        <div class="hero-title">
-            기술업무 AI 챗봇
-        </div>
-
-
-        <div class="hero-subtitle">
-
-            기술업무 관련 규정·지침을<br>
-            등록된 문서에 근거하여<br>
-            쉽고 정확하게 답변해 드립니다.
+            <div class="hero-chat-title">
+                기술업무 AI 챗봇
+            </div>
 
         </div>
 
