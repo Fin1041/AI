@@ -27,24 +27,55 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-/* 우측 상단 GitHub 아이콘 및 메뉴 숨기기 */
+
+/* --------------------------------
+   오른쪽 위 Streamlit 메뉴 숨기기
+-------------------------------- */
 [data-testid="stToolbar"] {
-    visibility: hidden;
+    display: none !important;
 }
 
-/* 우측 상단 전체 영역 숨기기 */
 [data-testid="stDecoration"] {
-    visibility: hidden;
-}
-/* 화면 하단 Streamlit footer 숨기기 */
-footer {
-    visibility: hidden;
+    display: none !important;
 }
 
-/* 하단 메뉴/브랜딩 영역 숨기기 */
-[data-testid="stStatusWidget"] {
-    visibility: hidden;
+
+/* --------------------------------
+   하단 Streamlit 배지 숨기기
+   Created by / Hosted with Streamlit
+-------------------------------- */
+footer {
+    display: none !important;
 }
+
+[data-testid="stStatusWidget"] {
+    display: none !important;
+}
+
+
+/* Streamlit 하단 배너 */
+[class*="viewerBadge"] {
+    display: none !important;
+}
+
+
+/* Streamlit 하단의 링크/브랜딩 */
+[class*="stAppDeployButton"] {
+    display: none !important;
+}
+
+
+/* 하단 고정 배지 영역 */
+div[class*="viewerBadge_container"] {
+    display: none !important;
+}
+
+
+/* Created by / Hosted with Streamlit 배지 */
+div[class*="viewerBadge_link"] {
+    display: none !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
