@@ -21,72 +21,88 @@ st.set_page_config(
     layout="centered"
 )
 
+
 # ==================================================
-# Streamlit 우측 상단 메뉴 숨기기
+# 2. Streamlit 기본 UI 숨기기
 # ==================================================
 
 st.markdown("""
 <style>
 
-/* --------------------------------
-   오른쪽 위 Streamlit 메뉴 숨기기
--------------------------------- */
+/* 오른쪽 위 도구 모음 */
 [data-testid="stToolbar"] {
     display: none !important;
 }
 
+/* 상단 장식 */
 [data-testid="stDecoration"] {
     display: none !important;
 }
 
-
-/* --------------------------------
-   하단 Streamlit 배지 숨기기
-   Created by / Hosted with Streamlit
--------------------------------- */
+/* 하단 기본 footer */
 footer {
     display: none !important;
 }
 
+/* Streamlit 상태 위젯 */
 [data-testid="stStatusWidget"] {
     display: none !important;
 }
 
-
-/* Streamlit 하단 배너 */
+/* Streamlit 배지 */
 [class*="viewerBadge"] {
     display: none !important;
 }
 
-
-/* Streamlit 하단의 링크/브랜딩 */
 [class*="stAppDeployButton"] {
     display: none !important;
 }
 
 
-/* 하단 고정 배지 영역 */
-div[class*="viewerBadge_container"] {
-    display: none !important;
+/* ------------------------------------------
+   PDF 선택 버튼
+------------------------------------------ */
+
+div.stButton > button {
+    width: 100%;
+    min-height: 58px;
+    text-align: left;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 12px;
 }
 
 
-/* Created by / Hosted with Streamlit 배지 */
-div[class*="viewerBadge_link"] {
-    display: none !important;
+/* ------------------------------------------
+   모바일 화면 여백
+------------------------------------------ */
+
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 5rem;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📚 대구경북 기술업무 AI 챗봇")
+
+# ==================================================
+# 3. 제목
+# ==================================================
+
+st.title(
+    "📚 대구경북 기술업무 AI 챗봇"
+)
 
 
 # ==================================================
-# 2. Gemini API 확인
+# 4. Gemini API 확인
 # ==================================================
 
-api_key = st.secrets.get("GEMINI_API_KEY")
+api_key = st.secrets.get(
+    "GEMINI_API_KEY"
+)
+
 
 if not api_key:
 
@@ -100,7 +116,7 @@ if not api_key:
 
 
 # ==================================================
-# 3. Gemini 클라이언트
+# 5. Gemini 클라이언트
 # ==================================================
 
 try:
@@ -119,17 +135,15 @@ except Exception as e:
 
 
 # ==================================================
-# 4. 임베딩 모델
+# 6. 임베딩 모델
 # ==================================================
 
 @st.cache_resource
 def load_embedding_model():
 
-    model = SentenceTransformer(
+    return SentenceTransformer(
         "intfloat/multilingual-e5-small"
     )
-
-    return model
 
 
 with st.spinner(
@@ -140,7 +154,7 @@ with st.spinner(
 
 
 # ==================================================
-# 5. 벡터 DB 위치
+# 7. 벡터 DB 위치
 # ==================================================
 
 VECTOR_FOLDER = "vector_db"
@@ -157,7 +171,7 @@ DOCUMENTS_PATH = os.path.join(
 
 
 # ==================================================
-# 6. 벡터 DB 파일 확인
+# 8. 벡터 DB 확인
 # ==================================================
 
 if not os.path.exists(INDEX_PATH):
@@ -184,7 +198,7 @@ if not os.path.exists(DOCUMENTS_PATH):
 
 
 # ==================================================
-# 7. 벡터 DB 불러오기
+# 9. 벡터 DB 불러오기
 # ==================================================
 
 @st.cache_resource
@@ -214,221 +228,44 @@ with st.spinner(
 
 
 # ==================================================
-# 8. 벡터 검색 함수
+# 10. 등록된 PDF 파일 목록 만들기
 # ==================================================
 
-def search_documents(query, top_k=6):
+filenames = []
 
-    # ----------------------------------------------
-    # 질문 확인
-    # ----------------------------------------------
+for document in documents:
 
-    if query is None:
-
-        return []
-
-
-    query = str(query).strip()
-
-
-    if not query:
-
-        return []
-
-
-    # ----------------------------------------------
-    # 질문을 벡터로 변환
-    # ----------------------------------------------
-
-    try:
-
-        query_embedding = embedding_model.encode(
-            ["query: " + query],
-            normalize_embeddings=True
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"질문 벡터 변환 오류: {e}"
-        )
-
-        return []
-
-
-    query_embedding = np.asarray(
-        query_embedding,
-        dtype="float32"
+    filename = str(
+        document.get("filename") or "파일명 없음"
     )
 
+    if filename not in filenames:
 
-    # ----------------------------------------------
-    # FAISS 검색
-    # ----------------------------------------------
-
-    try:
-
-        scores, indices = vector_index.search(
-            query_embedding,
-            top_k
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"벡터 DB 검색 오류: {e}"
-        )
-
-        return []
-
-
-    results = []
-
-
-    # ----------------------------------------------
-    # 검색 결과 처리
-    # ----------------------------------------------
-
-    for score, idx in zip(
-        scores[0],
-        indices[0]
-    ):
-
-        idx = int(idx)
-
-
-        # 잘못된 인덱스
-        if idx < 0:
-
-            continue
-
-
-        if idx >= len(documents):
-
-            continue
-
-
-        try:
-
-            result = documents[idx].copy()
-
-        except Exception:
-
-            continue
-
-
-        # ------------------------------------------
-        # None 값 방지
-        # ------------------------------------------
-
-        filename = (
-            result.get("filename")
-            if isinstance(result, dict)
-            else None
-        )
-
-        page = (
-            result.get("page")
-            if isinstance(result, dict)
-            else None
-        )
-
-        text = (
-            result.get("text")
-            if isinstance(result, dict)
-            else None
-        )
-
-
-        filename = str(
-            filename
-            if filename is not None
-            else "파일명 없음"
-        )
-
-
-        page = str(
-            page
-            if page is not None
-            else "페이지 정보 없음"
-        )
-
-
-        text = str(
-            text
-            if text is not None
-            else ""
-        )
-
-
-        # ------------------------------------------
-        # 내용 없는 결과 제외
-        # ------------------------------------------
-
-        if not text.strip():
-
-            continue
-
-
-        result["filename"] = filename
-        result["page"] = page
-        result["text"] = text
-        result["score"] = float(score)
-
-
-        results.append(result)
-
-
-    return results
+        filenames.append(filename)
 
 
 # ==================================================
-# 9. 첫 화면 메시지
+# 11. 선택된 PDF 상태
 # ==================================================
+
+if "selected_file" not in st.session_state:
+
+    st.session_state.selected_file = None
+
 
 if "messages" not in st.session_state:
 
-    # ----------------------------------------------
-    # 등록된 문서 목록
-    # ----------------------------------------------
-
-    filenames = []
+    st.session_state.messages = []
 
 
-    for document in documents:
+# ==================================================
+# 12. PDF 선택 화면
+# ==================================================
 
-        if not isinstance(
-            document,
-            dict
-        ):
+if st.session_state.selected_file is None:
 
-            continue
-
-
-        filename = document.get(
-            "filename"
-        )
-
-
-        if filename:
-
-            filename = str(
-                filename
-            )
-
-
-            if filename not in filenames:
-
-                filenames.append(
-                    filename
-                )
-
-
-    # ----------------------------------------------
-    # 첫 화면 안내
-    # ----------------------------------------------
-
-    welcome_message = """
+    st.markdown(
+        """
 안녕하십니까.
 
 저는 **대구경북지사 기술업무 담당 AI 챗봇**입니다.
@@ -436,48 +273,132 @@ if "messages" not in st.session_state:
 등록된 기술업무 규정집을 벡터 검색하여
 질문과 관련성이 높은 규정을 찾아 답변해 드립니다.
 
-### 📚 등록된 규정집
-
+### 📚 질문할 규정집을 선택하세요.
 """
+    )
 
 
-    if filenames:
+    if not filenames:
 
-        for filename in filenames:
-
-            welcome_message += (
-                f"- 📋 {filename}\n"
-            )
-
-    else:
-
-        welcome_message += (
-            "- 등록된 규정집이 없습니다.\n"
+        st.warning(
+            "등록된 규정집이 없습니다."
         )
 
-
-    welcome_message += """
-
-궁금하신 사항을 질문해 주세요.
-
-답변은 관련 규정의 **문서명과 페이지**를
-함께 표시합니다.
-
-※ 등록된 문서에서 근거를 찾을 수 없는 내용은
-임의로 답변하지 않습니다.
-"""
+        st.stop()
 
 
-    st.session_state.messages = [
-        {
-            "role": "assistant",
-            "content": welcome_message
-        }
-    ]
+    # ----------------------------------------------
+    # PDF 선택 버튼
+    # ----------------------------------------------
+
+    for filename in filenames:
+
+        if st.button(
+            f"📋  {filename}",
+            key=f"pdf_{filename}"
+        ):
+
+            st.session_state.selected_file = (
+                filename
+            )
+
+            # 이전 대화 삭제
+            st.session_state.messages = []
+
+            st.rerun()
+
+
+    st.markdown(
+        """
+<br>
+
+※ 규정집을 선택하면 선택한 문서에 대해서만
+질문하고 답변받을 수 있습니다.
+""",
+        unsafe_allow_html=True
+    )
+
+
+    st.stop()
 
 
 # ==================================================
-# 10. 기존 대화 표시
+# 13. 선택된 PDF
+# ==================================================
+
+selected_file = st.session_state.selected_file
+
+
+# ==================================================
+# 14. 규정집 목록으로 돌아가기
+# ==================================================
+
+if st.button(
+    "← 규정집 목록",
+    key="back_to_list"
+):
+
+    st.session_state.selected_file = None
+
+    st.session_state.messages = []
+
+    st.rerun()
+
+
+# ==================================================
+# 15. 선택된 규정집 표시
+# ==================================================
+
+st.markdown(
+    f"""
+## 📚 선택된 규정집
+
+**{selected_file}**
+
+이 규정집의 내용만 검색하여 답변합니다.
+"""
+)
+
+
+st.divider()
+
+
+# ==================================================
+# 16. 첫 질문 전 안내
+# ==================================================
+
+if not st.session_state.messages:
+
+    welcome = f"""
+안녕하십니까.
+
+현재 **「{selected_file}」** 규정집을 선택하셨습니다.
+
+이제 이 규정집에 대해서만 질문할 수 있습니다.
+
+예를 들어,
+
+- 해당 업무의 처리절차는 무엇인가요?
+- 담당자의 업무는 무엇인가요?
+- 적용 대상은 어떻게 되나요?
+- 관련 기준은 무엇인가요?
+
+궁금하신 사항을 질문해 주세요.
+
+※ 선택한 규정집에 명시되지 않은 내용은
+임의로 답변하지 않습니다.
+"""
+
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": welcome
+        }
+    )
+
+
+# ==================================================
+# 17. 기존 대화 표시
 # ==================================================
 
 for message in st.session_state.messages:
@@ -492,7 +413,172 @@ for message in st.session_state.messages:
 
 
 # ==================================================
-# 11. 사용자 질문
+# 18. 벡터 검색 함수
+# ==================================================
+
+def search_selected_document(
+    query,
+    selected_filename,
+    top_k=6
+):
+
+    # ----------------------------------------------
+    # 질문 확인
+    # ----------------------------------------------
+
+    if query is None:
+
+        return []
+
+
+    query = str(
+        query
+    ).strip()
+
+
+    if not query:
+
+        return []
+
+
+    # ----------------------------------------------
+    # 질문 벡터화
+    # ----------------------------------------------
+
+    query_embedding = (
+        embedding_model.encode(
+            ["query: " + query],
+            normalize_embeddings=True
+        )
+    )
+
+
+    query_embedding = np.asarray(
+        query_embedding,
+        dtype="float32"
+    )
+
+
+    # ----------------------------------------------
+    # 전체 벡터에서 충분히 많이 검색
+    #
+    # 선택한 PDF의 결과만 나중에 필터링
+    # ----------------------------------------------
+
+    total_vectors = vector_index.ntotal
+
+
+    if total_vectors <= 0:
+
+        return []
+
+
+    search_count = min(
+        max(top_k * 20, 50),
+        total_vectors
+    )
+
+
+    scores, indices = (
+        vector_index.search(
+            query_embedding,
+            search_count
+        )
+    )
+
+
+    results = []
+
+
+    # ----------------------------------------------
+    # 선택한 PDF만 남김
+    # ----------------------------------------------
+
+    for score, idx in zip(
+        scores[0],
+        indices[0]
+    ):
+
+        if idx < 0:
+
+            continue
+
+
+        idx = int(idx)
+
+
+        if idx >= len(documents):
+
+            continue
+
+
+        result = documents[idx]
+
+
+        filename = str(
+            result.get("filename") or ""
+        )
+
+
+        # ==========================================
+        # 핵심
+        #
+        # 현재 선택한 PDF가 아니면 제외
+        # ==========================================
+
+        if filename != selected_filename:
+
+            continue
+
+
+        text = str(
+            result.get("text") or ""
+        ).strip()
+
+
+        if not text:
+
+            continue
+
+
+        result_copy = result.copy()
+
+
+        result_copy["filename"] = (
+            filename
+        )
+
+
+        result_copy["page"] = str(
+            result.get("page")
+            or "페이지 정보 없음"
+        )
+
+
+        result_copy["text"] = text
+
+
+        result_copy["score"] = float(
+            score
+        )
+
+
+        results.append(
+            result_copy
+        )
+
+
+        # 필요한 개수만 확보
+        if len(results) >= top_k:
+
+            break
+
+
+    return results
+
+
+# ==================================================
+# 19. 사용자 질문
 # ==================================================
 
 user_input = st.chat_input(
@@ -501,13 +587,18 @@ user_input = st.chat_input(
 
 
 # ==================================================
-# 12. 질문을 입력했을 때만 실행
+# 20. 질문했을 때만 실행
+#
+# ★ 매우 중요
+#
+# 기존 코드의 오류를 수정하여
+# user_input이 있을 때만 AI가 실행됩니다.
 # ==================================================
 
 if user_input:
 
     # ----------------------------------------------
-    # 사용자 질문 저장
+    # 사용자 질문 표시
     # ----------------------------------------------
 
     st.session_state.messages.append(
@@ -518,26 +609,22 @@ if user_input:
     )
 
 
-    # ----------------------------------------------
-    # 사용자 질문 표시
-    # ----------------------------------------------
-
-    with st.chat_message("user"):
+    with st.chat_message(
+        "user"
+    ):
 
         st.markdown(
             user_input
         )
 
 
-    # ==================================================
-    # AI 답변 영역
-    # ==================================================
+    # ----------------------------------------------
+    # AI 답변
+    # ----------------------------------------------
 
-    with st.chat_message("assistant"):
-
-        # ------------------------------------------
-        # 진행상황 표시
-        # ------------------------------------------
+    with st.chat_message(
+        "assistant"
+    ):
 
         status = st.status(
             "📚 관련 규정을 검색하고 있습니다...",
@@ -545,37 +632,37 @@ if user_input:
         )
 
 
-        answer = ""
-
-
         try:
 
             # ======================================
-            # ① 벡터 검색
+            # ① 선택된 PDF만 벡터 검색
             # ======================================
 
-            search_results = search_documents(
-                user_input,
-                top_k=6
+            search_results = (
+                search_selected_document(
+                    user_input,
+                    selected_file,
+                    top_k=6
+                )
             )
 
 
             # ======================================
-            # ② 검색 결과가 없는 경우
+            # ② 검색 결과 없음
             # ======================================
 
             if not search_results:
 
                 status.update(
-                    label="❌ 관련 규정을 찾지 못했습니다.",
+                    label="❌ 선택한 규정집에서 관련 내용을 찾지 못했습니다.",
                     state="complete",
                     expanded=False
                 )
 
 
                 answer = (
-                    "해당 내용은 업로드된 "
-                    "기술업무 문서에 명시되어 있지 않습니다."
+                    "해당 내용은 선택하신 규정집에 "
+                    "명시되어 있지 않습니다."
                 )
 
 
@@ -584,25 +671,25 @@ if user_input:
                 )
 
 
-            # ======================================
-            # ③ 검색 결과가 있는 경우
-            # ======================================
-
             else:
+
+                # ==================================
+                # 검색 결과 확인
+                # ==================================
 
                 status.update(
                     label=(
-                        f"✅ 관련 규정 "
-                        f"{len(search_results)}건을 찾았습니다."
+                        f"✅ 「{selected_file}」에서 "
+                        f"관련 규정 {len(search_results)}건을 찾았습니다."
                     ),
                     state="running",
                     expanded=True
                 )
 
 
-                # ----------------------------------
-                # 검색 결과 정리
-                # ----------------------------------
+                # ==================================
+                # 검색 결과를 Gemini에 전달
+                # ==================================
 
                 context_parts = []
 
@@ -612,59 +699,29 @@ if user_input:
                     start=1
                 ):
 
-                    filename = str(
-                        result.get(
-                            "filename",
-                            "파일명 없음"
-                        )
-                    )
-
-
-                    page = str(
-                        result.get(
-                            "page",
-                            "페이지 정보 없음"
-                        )
-                    )
-
-
-                    text = str(
-                        result.get(
-                            "text",
-                            ""
-                        )
-                    )
-
-
-                    score = float(
-                        result.get(
-                            "score",
-                            0
-                        )
-                    )
-
-
                     context_parts.append(
                         f"""
 [검색결과 {i}]
 
 문서명:
-{filename}
+{result["filename"]}
 
 페이지:
-{page}페이지
+{result["page"]}페이지
 
 검색 관련도:
-{score:.3f}
+{result["score"]:.3f}
 
 내용:
-{text}
+{result["text"]}
 """
                     )
 
 
-                search_context = "\n".join(
-                    context_parts
+                search_context = (
+                    "\n".join(
+                        context_parts
+                    )
                 )
 
 
@@ -676,55 +733,69 @@ if user_input:
 너는 주택관리공단 대구경북지사의
 기술업무 담당 AI 챗봇이다.
 
-사용자의 질문에 대해 아래 [검색된 규정 문서]
-내용만을 근거로 답변해야 한다.
+사용자가 현재 선택한 규정집은 다음과 같다.
+
+[선택된 규정집]
+
+{selected_file}
+
+
+매우 중요하다.
+
+사용자의 질문에 대해 반드시
+위에서 선택된 규정집의
+[검색된 관련 내용]만을 근거로 답변해야 한다.
+
+다른 PDF 문서의 내용이나
+인터넷 검색 결과를 사용하지 않는다.
+
 
 [답변 원칙]
 
-1. 검색된 규정 문서 내용을 근거로 답변한다.
+1. 선택된 규정집의 검색 결과만 근거로 답변한다.
 
-2. 검색된 문서에 없는 내용을
+2. 검색 결과에 없는 내용을
 추측하거나 만들어내지 않는다.
 
-3. 문서에서 답변 근거를 찾을 수 없는 경우
-다음 문장을 사용한다.
+3. 답변 근거가 부족한 경우에는
+다음과 같이 답변한다.
 
-"해당 내용은 업로드된 기술업무 문서에 명시되어 있지 않습니다."
+"해당 내용은 선택하신 규정집에 명시되어 있지 않습니다."
 
-4. 답변의 근거가 되는 문서명을 반드시 표시한다.
+4. 답변에는 가능한 경우
+관련 페이지를 표시한다.
 
-5. 가능한 경우 페이지 번호를 표시한다.
+5. 규정이나 업무절차는
+이해하기 쉽도록 항목별로 정리한다.
 
-6. 여러 문서가 관련된 경우
-관련 문서를 모두 표시한다.
-
-7. 인터넷 검색을 사용하지 않는다.
-
-8. 일반적인 지식보다
-제공된 규정 문서를 우선한다.
-
-9. 답변은 이해하기 쉬운 한국어로 작성한다.
-
-10. 규정이나 업무절차는 가능한 경우
-번호나 항목을 사용하여 정리한다.
-
-11. 검색된 규정 내용끼리 서로 다른 경우
+6. 검색된 규정 내용에 서로 다른 내용이 있으면
 임의로 하나를 선택하지 말고
-차이가 있음을 알려준다.
+차이가 있음을 설명한다.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. 일반적인 지식보다
+검색된 규정 내용을 우선한다.
 
-[검색된 관련 규정]
+8. 인터넷 검색을 하지 않는다.
+
+9. 답변은 한국어로 작성한다.
+
+10. 질문과 직접 관련이 없는 내용은
+답변에 포함하지 않는다.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[검색된 관련 내용]
 
 {search_context}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [사용자 질문]
 
 {user_input}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [답변]
 
@@ -732,7 +803,7 @@ if user_input:
 
 
                 # ==================================
-                # Gemini 답변 작성 시작
+                # Gemini 답변
                 # ==================================
 
                 status.update(
@@ -748,10 +819,7 @@ if user_input:
                 answer = None
 
 
-                # ----------------------------------
                 # 최대 3회 재시도
-                # ----------------------------------
-
                 for attempt in range(3):
 
                     try:
@@ -764,13 +832,7 @@ if user_input:
                         )
 
 
-                        if response is not None:
-
-                            answer = getattr(
-                                response,
-                                "text",
-                                None
-                            )
+                        answer = response.text
 
 
                         if answer:
@@ -785,8 +847,10 @@ if user_input:
 
                         # 503 재시도
                         if (
-                            "503" in error_text
-                            or "UNAVAILABLE"
+                            "503"
+                            in error_text
+                            or
+                            "UNAVAILABLE"
                             in error_text
                         ):
 
@@ -794,7 +858,7 @@ if user_input:
 
                                 status.update(
                                     label=(
-                                        "🔄 AI 서버 재시도 중... "
+                                        f"🔄 AI 서버 재시도 중... "
                                         f"({attempt + 1}/3)"
                                     ),
                                     state="running",
@@ -812,30 +876,29 @@ if user_input:
 
                         # 기타 오류
                         answer = (
-                            "⚠️ Gemini AI 오류가 "
-                            "발생했습니다.\n\n"
-                            f"오류 내용: `{error_text}`"
+                            "⚠️ Gemini AI 오류가 발생했습니다.\n\n"
+                            f"`{error_text}`"
                         )
 
 
                         break
 
 
-                # ----------------------------------
-                # 답변이 없는 경우
-                # ----------------------------------
+                # ==================================
+                # 답변 실패
+                # ==================================
 
                 if not answer:
 
                     answer = (
                         "⚠️ 현재 Gemini AI 서버가 "
-                        "응답하지 않았습니다.\n\n"
+                        "일시적으로 응답하지 않습니다.\n\n"
                         "잠시 후 다시 질문해 주세요."
                     )
 
 
                 # ==================================
-                # 답변 완료
+                # 완료
                 # ==================================
 
                 status.update(
@@ -854,12 +917,13 @@ if user_input:
                 )
 
 
-              
+                # ==================================
+                # 답변 근거는 화면에 별도로 표시하지 않음
+                #
+                # 사용자가 원하셨던
+                # "답변 근거" 목록을 제거
+                # ==================================
 
-
-        # ==========================================
-        # 오류 처리
-        # ==========================================
 
         except Exception as e:
 
@@ -881,13 +945,13 @@ if user_input:
             )
 
 
-        # ==========================================
-        # 답변 저장
-        # ==========================================
+    # ----------------------------------------------
+    # 답변 저장
+    # ----------------------------------------------
 
-        st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": answer
-            }
-        )
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": answer
+        }
+    )
