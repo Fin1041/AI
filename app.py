@@ -329,20 +329,7 @@ if st.session_state.selected_file is None:
 selected_file = st.session_state.selected_file
 
 
-# ==================================================
-# 14. 규정집 목록으로 돌아가기
-# ==================================================
 
-if st.button(
-    "← 규정집 목록",
-    key="back_to_list"
-):
-
-    st.session_state.selected_file = None
-
-    st.session_state.messages = []
-
-    st.rerun()
 
 
 # ==================================================
@@ -412,6 +399,21 @@ for message in st.session_state.messages:
         )
 
 
+# ==================================================
+# 14. 규정집 목록으로 돌아가기
+# ==================================================
+
+if st.button(
+    "← 규정집 목록",
+    key="back_to_list"
+):
+
+    st.session_state.selected_file = None
+
+    st.session_state.messages = []
+
+    st.rerun()
+    
 # ==================================================
 # 18. 벡터 검색 함수
 # ==================================================
