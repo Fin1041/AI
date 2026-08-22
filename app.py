@@ -36,6 +36,15 @@ st.markdown("""
 [data-testid="stDecoration"] {
     visibility: hidden;
 }
+/* 화면 하단 Streamlit footer 숨기기 */
+footer {
+    visibility: hidden;
+}
+
+/* 하단 메뉴/브랜딩 영역 숨기기 */
+[data-testid="stStatusWidget"] {
+    visibility: hidden;
+}
 </style>
 """, unsafe_allow_html=True)
 
