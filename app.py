@@ -750,51 +750,28 @@ st.markdown(
 
 
 # =========================================================
-# 15. 규정집 목록 버튼
+# 규정집 전체 목록
 # =========================================================
 
-if st.button(
-    "📚 규정집 목록",
-    use_container_width=True
-):
-
-    st.session_state.show_documents = (
-        not st.session_state.get(
-            "show_documents",
-            False
-        )
-    )
+st.markdown(
+    "### 📚 질문할 규정집을 선택하세요."
+)
 
 
-# =========================================================
-# 16. 규정집 목록 표시
-# =========================================================
+for filename in filenames:
 
-if st.session_state.get(
-    "show_documents",
-    False
-):
+    if st.button(
+        f"📋 {filename}",
+        key=f"document_{filename}",
+        use_container_width=True
+    ):
 
-    st.markdown(
-        "### 📚 질문할 규정집을 선택하세요."
-    )
+        st.session_state.selected_file = filename
 
-    for filename in filenames:
+        # 규정집을 새로 선택하면 기존 대화 초기화
+        st.session_state.messages = []
 
-        if st.button(
-            f"📋 {filename}",
-            key=f"document_{filename}",
-            use_container_width=True
-        ):
-
-            st.session_state.selected_file = filename
-
-            st.session_state.show_documents = False
-
-            # 규정집 변경 시 대화 초기화
-            st.session_state.messages = []
-
-            st.rerun()
+        st.rerun()
 
 
 # =========================================================
