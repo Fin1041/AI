@@ -769,42 +769,7 @@ if st.session_state.selected_file is not None:
                     st.markdown(answer)
 
 
-                    # =================================
-                    # ⑧ 답변 근거
-                    # =================================
-
-                    st.markdown("---")
-
-                    st.markdown(
-                        "### 📚 답변 근거"
-                    )
-
-
-                    shown_sources = set()
-
-
-                    for result in search_results:
-
-                        source_key = (
-                            result["filename"],
-                            result["page"]
-                        )
-
-
-                        if source_key in shown_sources:
-                            continue
-
-
-                        shown_sources.add(
-                            source_key
-                        )
-
-
-                        st.markdown(
-                            f"📋 **{result['filename']}**  \n"
-                            f"📖 {result['page']}페이지"
-                        )
-
+                   
 
                 # =================================
                 # ⑨ 답변 저장
