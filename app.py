@@ -612,7 +612,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
 # =========================================================
 # 4. Gemini API 확인
 # =========================================================
@@ -919,26 +918,26 @@ if not st.session_state.selected_file:
     # -----------------------------------------------------
 
     st.markdown(
-        """
-        <div class="info-card">
+    """
+    <div class="info-card">
 
-            <div class="info-title">
-                🤖 안녕하십니까.
-            </div>
+        <div class="info-title">
+            🤖 안녕하십니까.
+        </div>
 
-            <div class="info-text">
+        <div class="info-text">
 
-                저는 <b>대구경북지사 기술업무 담당 AI 챗봇</b>입니다.<br><br>
+            저는 <b>대구경북지사 기술업무 담당 AI 챗봇</b>입니다.<br><br>
 
-                등록된 기술업무 규정집을 검색하여
-                질문과 관련성이 높은 내용을 찾아 답변해 드립니다.
-
-            </div>
+            등록된 기술업무 규정집을 검색하여
+            질문과 관련성이 높은 내용을 찾아 답변해 드립니다.
 
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 
     # -----------------------------------------------------
