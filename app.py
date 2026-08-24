@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 
 import os
 import time
+import html
 
 
 # =========================================================
@@ -31,9 +32,9 @@ st.markdown(
     """
     <style>
 
-    /* ---------------------------------------------
-       전체 배경
-    --------------------------------------------- */
+    /* =====================================================
+       전체 화면
+    ===================================================== */
 
     .stApp {
         background: #f5f8fc;
@@ -41,133 +42,132 @@ st.markdown(
 
     .main .block-container {
         max-width: 900px;
-        padding-top: 20px;
-        padding-bottom: 100px;
+        padding-top: 10px;
+        padding-bottom: 80px;
     }
 
 
-    /* ---------------------------------------------
-       상단 헤더
-    --------------------------------------------- */
+    /* =====================================================
+       상단 파란색 헤더
+    ===================================================== */
 
-.hero {
+    .hero {
 
-    background: linear-gradient(
-        135deg,
-        #0756c9 0%,
-        #1976e8 55%,
-        #48a1f5 100%
-    );
+        background: linear-gradient(
+            135deg,
+            #0756c9 0%,
+            #1976e8 55%,
+            #48a1f5 100%
+        );
 
-    border-radius: 0 0 24px 24px;
+        border-radius: 0 0 24px 24px;
 
-    padding: 18px 24px;
+        padding: 18px 24px;
 
-    color: white;
+        color: white;
 
-    margin-bottom: 18px;
+        margin-bottom: 18px;
 
-    box-shadow:
-        0 6px 18px rgba(0, 82, 180, 0.16);
-}
-
-
-/* 한 줄 배치 */
-
-.hero-top {
-
-    display: flex;
-
-    align-items: center;
-
-    gap: 10px;
-
-    min-height: 50px;
-
-}
+        box-shadow:
+            0 6px 18px rgba(0, 82, 180, 0.16);
+    }
 
 
-/* 로고 */
+    /* 한 줄 배치 */
 
-.hero-logo {
+    .hero-top {
 
-    width: 46px;
-    height: 46px;
+        display: flex;
 
-    border-radius: 13px;
+        align-items: center;
 
-    background: rgba(255,255,255,0.96);
+        gap: 10px;
 
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    font-size: 26px;
-
-    flex-shrink: 0;
-
-    box-shadow:
-        0 3px 10px rgba(0,0,0,0.12);
-}
+        min-height: 50px;
+    }
 
 
-/* 주택관리공단 */
+    /* 로고 */
 
-.hero-title-small {
+    .hero-logo {
 
-    font-size: 16px;
+        width: 46px;
+        height: 46px;
 
-    font-weight: 800;
+        border-radius: 13px;
 
-    line-height: 1.25;
+        background: rgba(255,255,255,0.96);
 
-    white-space: nowrap;
-}
+        display: flex;
 
+        align-items: center;
 
-/* 대구경북지사 */
+        justify-content: center;
 
-.hero-title-small span {
+        font-size: 26px;
 
-    display: block;
+        flex-shrink: 0;
 
-    font-size: 11px;
-
-    margin-top: 2px;
-
-    opacity: 0.9;
-}
+        box-shadow:
+            0 3px 10px rgba(0,0,0,0.12);
+    }
 
 
-/* 구분선 */
+    /* 주택관리공단 */
 
-.hero-divider {
+    .hero-title-small {
 
-    font-size: 24px;
+        font-size: 16px;
 
-    opacity: 0.6;
+        font-weight: 800;
 
-    margin-left: 4px;
-}
+        line-height: 1.25;
+
+        white-space: nowrap;
+    }
 
 
-/* 기술업무 AI 챗봇 */
+    .hero-title-small span {
 
-.hero-chat-title {
+        display: block;
 
-    font-size: 25px;
+        font-size: 11px;
 
-    font-weight: 800;
+        margin-top: 2px;
 
-    letter-spacing: -1px;
+        opacity: 0.9;
+    }
 
-    white-space: nowrap;
-}
 
-    /* ---------------------------------------------
+    /* 구분선 */
+
+    .hero-divider {
+
+        font-size: 24px;
+
+        opacity: 0.6;
+
+        margin-left: 4px;
+    }
+
+
+    /* 기술업무 AI 챗봇 */
+
+    .hero-chat-title {
+
+        font-size: 25px;
+
+        font-weight: 800;
+
+        letter-spacing: -1px;
+
+        white-space: nowrap;
+    }
+
+
+    /* =====================================================
        안내 카드
-    --------------------------------------------- */
+    ===================================================== */
 
     .info-card {
 
@@ -175,10 +175,9 @@ st.markdown(
 
         border-radius: 22px;
 
-        padding: 24px;
+        padding: 22px 24px;
 
-        margin-top: -5px;
-        margin-bottom: 18px;
+        margin-bottom: 16px;
 
         border: 1px solid #e1e8f0;
 
@@ -190,6 +189,7 @@ st.markdown(
     .info-title {
 
         font-size: 20px;
+
         font-weight: 800;
 
         color: #17365f;
@@ -208,9 +208,25 @@ st.markdown(
     }
 
 
-    /* ---------------------------------------------
+    /* =====================================================
+       주의 문구
+    ===================================================== */
+
+    .notice-text {
+
+        font-size: 14px;
+
+        font-weight: 700;
+
+        color: #243d5a;
+
+        margin: 18px 3px 10px 3px;
+    }
+
+
+    /* =====================================================
        선택된 규정집
-    --------------------------------------------- */
+    ===================================================== */
 
     .selected-card {
 
@@ -226,8 +242,12 @@ st.markdown(
 
         padding: 18px 20px;
 
-        margin-top: 15px;
-        margin-bottom: 15px;
+        margin-top: 10px;
+
+        margin-bottom: 12px;
+
+        box-shadow:
+            0 4px 12px rgba(30,100,160,0.06);
     }
 
 
@@ -252,12 +272,14 @@ st.markdown(
         font-weight: 800;
 
         word-break: keep-all;
+
+        line-height: 1.5;
     }
 
 
-    /* ---------------------------------------------
+    /* =====================================================
        질문 말풍선
-    --------------------------------------------- */
+    ===================================================== */
 
     .user-bubble {
 
@@ -282,9 +304,9 @@ st.markdown(
     }
 
 
-    /* ---------------------------------------------
-       AI 답변
-    --------------------------------------------- */
+    /* =====================================================
+       AI 답변 카드
+    ===================================================== */
 
     .ai-card {
 
@@ -322,6 +344,7 @@ st.markdown(
     .ai-icon {
 
         width: 38px;
+
         height: 38px;
 
         border-radius: 50%;
@@ -348,9 +371,9 @@ st.markdown(
     }
 
 
-    /* ---------------------------------------------
+    /* =====================================================
        답변 근거
-    --------------------------------------------- */
+    ===================================================== */
 
     .source-card {
 
@@ -362,7 +385,7 @@ st.markdown(
 
         padding: 13px 15px;
 
-        margin-top: 15px;
+        margin-top: 10px;
 
         color: #245c57;
 
@@ -372,9 +395,9 @@ st.markdown(
     }
 
 
-    /* ---------------------------------------------
-       규정집 선택 버튼
-    --------------------------------------------- */
+    /* =====================================================
+       버튼
+    ===================================================== */
 
     div.stButton > button {
 
@@ -388,7 +411,7 @@ st.markdown(
 
         font-weight: 700 !important;
 
-        min-height: 42px !important;
+        min-height: 44px !important;
 
         transition: all 0.2s ease;
     }
@@ -404,38 +427,34 @@ st.markdown(
     }
 
 
-    /* ---------------------------------------------
-       선택된 규정집 버튼
-    --------------------------------------------- */
+    /* =====================================================
+       규정집 목록 제목
+    ===================================================== */
 
-    .selected-button-text {
+    .document-title {
 
-        background: #eaf4ff;
-
-        border: 1px solid #b9d8f8;
-
-        border-radius: 14px;
-
-        padding: 12px 15px;
-
-        color: #0756c9;
+        font-size: 19px;
 
         font-weight: 800;
+
+        color: #17365f;
+
+        margin-top: 12px;
 
         margin-bottom: 10px;
     }
 
 
-    /* ---------------------------------------------
-       Streamlit 하단 footer 숨기기
-    --------------------------------------------- */
+    /* =====================================================
+       하단 Streamlit footer 제거
+    ===================================================== */
 
     footer {
         visibility: hidden;
     }
 
 
-    /* GitHub / 상단 툴바 숨기기 */
+    /* 상단 GitHub / Share / 메뉴 등 툴바 숨기기 */
 
     [data-testid="stToolbar"] {
         visibility: hidden;
@@ -443,18 +462,20 @@ st.markdown(
     }
 
 
-    /* ---------------------------------------------
-       모바일
-    --------------------------------------------- */
+    /* =====================================================
+       모바일 화면
+    ===================================================== */
 
     @media (max-width: 600px) {
 
         .main .block-container {
 
-            padding-left: 16px;
-            padding-right: 16px;
+            padding-left: 12px;
+            padding-right: 12px;
 
-            padding-top: 10px;
+            padding-top: 5px;
+
+            padding-bottom: 70px;
         }
 
 
@@ -462,31 +483,91 @@ st.markdown(
 
             border-radius: 0 0 22px 22px;
 
-            padding: 24px 20px 28px 20px;
+            padding: 15px 16px;
+
+            margin-bottom: 14px;
         }
 
 
-        .hero-title {
+        .hero-top {
 
-            font-size: 30px;
+            gap: 7px;
         }
 
 
-        .hero-subtitle {
+        .hero-logo {
 
-            font-size: 14px;
+            width: 40px;
+
+            height: 40px;
+
+            font-size: 23px;
+        }
+
+
+        .hero-title-small {
+
+            font-size: 13px;
+        }
+
+
+        .hero-title-small span {
+
+            font-size: 9px;
+        }
+
+
+        .hero-divider {
+
+            font-size: 20px;
+        }
+
+
+        .hero-chat-title {
+
+            font-size: 18px;
+
+            letter-spacing: -1px;
         }
 
 
         .info-card {
 
-            padding: 20px;
+            padding: 19px;
+
+            border-radius: 19px;
+        }
+
+
+        .info-title {
+
+            font-size: 18px;
+        }
+
+
+        .info-text {
+
+            font-size: 14px;
+        }
+
+
+        .selected-file {
+
+            font-size: 15px;
         }
 
 
         .user-bubble {
 
             max-width: 90%;
+
+            font-size: 14px;
+        }
+
+
+        .ai-content {
+
+            font-size: 14px;
         }
 
     }
@@ -498,10 +579,10 @@ st.markdown(
 
 
 # =========================================================
-# 3. 상단 메인 화면
+# 3. 상단 메인 헤더
 # =========================================================
 
-st.html(
+st.markdown(
     """
     <div class="hero">
 
@@ -527,7 +608,8 @@ st.html(
         </div>
 
     </div>
-    """
+    """,
+    unsafe_allow_html=True
 )
 
 
@@ -662,7 +744,7 @@ with st.spinner(
 
 
 # =========================================================
-# 10. 등록된 PDF 목록
+# 10. 등록된 PDF 목록 만들기
 # =========================================================
 
 filenames = []
@@ -680,7 +762,7 @@ for document in documents:
 
 
 # =========================================================
-# 11. 현재 선택된 규정집
+# 11. 세션 상태
 # =========================================================
 
 if "selected_file" not in st.session_state:
@@ -688,116 +770,13 @@ if "selected_file" not in st.session_state:
     st.session_state.selected_file = None
 
 
-# =========================================================
-# 12. 안내 카드
-# =========================================================
+if "messages" not in st.session_state:
 
-st.html(
-    """
-    <div class="info-card">
-
-        <div class="info-title">
-            🤖 안녕하십니까.
-        </div>
-
-        <div class="info-text">
-
-            저는 <b>대구경북지사 기술업무 담당 AI 챗봇</b>입니다.<br><br>
-
-            등록된 기술업무 규정집을 벡터 검색하여
-            질문과 관련성이 높은 내용을 찾아 답변해 드립니다.<br><br>
-
-          <b>  ※ 선택한 규정집에 명시되지 않은 내용은
-    임의로 답변하지 않습니다.</b>
-
-        </div>
-
-    </div>
-    """
-)
+    st.session_state.messages = []
 
 
 # =========================================================
-# 13. 선택된 규정집 표시
-# =========================================================
-
-if st.session_state.selected_file:
-
-    st.html(
-        f"""
-        <div class="selected-card">
-
-            <div class="selected-label">
-                📚 현재 선택된 규정집
-            </div>
-
-            <div class="selected-file">
-                {st.session_state.selected_file}
-            </div>
-
-        </div>
-        """
-    )
-
-
-
-
-
-# =========================================================
-# 규정집 전체 목록
-# =========================================================
-
-st.markdown(
-    "### 📚 질문할 규정집을 선택하세요."
-)
-
-
-for filename in filenames:
-
-    if st.button(
-        f"📋 {filename}",
-        key=f"document_{filename}",
-        use_container_width=True
-    ):
-
-        st.session_state.selected_file = filename
-
-        # 규정집을 새로 선택하면 기존 대화 초기화
-        st.session_state.messages = []
-
-        st.rerun()
-
-
-# =========================================================
-# 17. 선택된 규정집이 없는 경우
-# =========================================================
-
-if not st.session_state.selected_file:
-
-    st.html(
-        """
-        <div class="info-card">
-
-            <div class="info-title">
-                📚 규정집을 먼저 선택해주세요.
-            </div>
-
-            <div class="info-text">
-
-                위의 <b>📚 규정집 목록</b> 버튼을 눌러
-                질문할 규정집을 선택하면 됩니다.
-
-            </div>
-
-        </div>
-        """
-    )
-
-    st.stop()
-
-
-# =========================================================
-# 18. 검색 함수
+# 12. 검색 함수
 # =========================================================
 
 def search_documents(
@@ -819,9 +798,14 @@ def search_documents(
         return []
 
 
-    # ---------------------------------------------
-    # 질문 벡터화
-    # ---------------------------------------------
+    if not selected_filename:
+
+        return []
+
+
+    # -----------------------------------------------------
+    # 질문을 벡터로 변환
+    # -----------------------------------------------------
 
     query_embedding = embedding_model.encode(
         ["query: " + query],
@@ -835,12 +819,10 @@ def search_documents(
     )
 
 
-    # ---------------------------------------------
+    # -----------------------------------------------------
     # FAISS 검색
-    # ---------------------------------------------
+    # -----------------------------------------------------
 
-    # 선택된 문서에 해당하는 결과만 사용하기 위해
-    # 먼저 충분히 많이 검색
     search_k = min(
         max(top_k * 10, 30),
         len(documents)
@@ -880,9 +862,9 @@ def search_documents(
         )
 
 
-        # -----------------------------------------
-        # 선택한 PDF만 검색
-        # -----------------------------------------
+        # -------------------------------------------------
+        # 선택된 PDF와 같은 문서인지 확인
+        # -------------------------------------------------
 
         if filename != selected_filename:
 
@@ -927,291 +909,180 @@ def search_documents(
 
 
 # =========================================================
-# 19. 대화 기록 초기화
+# 13. 첫 화면 - 규정집 선택 화면
 # =========================================================
 
-if "messages" not in st.session_state:
+if not st.session_state.selected_file:
 
-    st.session_state.messages = []
+    # -----------------------------------------------------
+    # 안내 카드
+    # -----------------------------------------------------
 
-
-# =========================================================
-# 20. 기존 대화 표시
-# =========================================================
-
-for message in st.session_state.messages:
-
-    if message["role"] == "user":
-
-        st.html(
-            f"""
-            <div class="user-bubble">
-                {message["content"]}
-            </div>
-            """
-        )
-
-    else:
-
-        st.html(
-            f"""
-            <div class="ai-card">
-
-                <div class="ai-header">
-
-                    <div class="ai-icon">
-                        🤖
-                    </div>
-
-                    <div>
-                        대구경북 기술업무 AI
-                    </div>
-
-                </div>
-
-                <div class="ai-content">
-
-                    {message["content"]}
-
-                </div>
-
-            </div>
-            """
-        )
-
-
-# =========================================================
-# 21. 질문 입력
-# =========================================================
-
-user_input = st.chat_input(
-    "선택한 규정집에 대해 질문하세요."
-)
-
-
-# =========================================================
-# 22. 질문이 입력된 경우
-# =========================================================
-
-if user_input:
-
-    # =====================================================
-    # 사용자 질문 저장
-    # =====================================================
-
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": user_input
-        }
-    )
-
-
-    # =====================================================
-    # 사용자 질문 표시
-    # =====================================================
-
-    st.html(
-        f"""
-        <div class="user-bubble">
-            {user_input}
-        </div>
+    st.markdown(
         """
+        <div class="info-card">
+
+            <div class="info-title">
+                🤖 안녕하십니까.
+            </div>
+
+            <div class="info-text">
+
+                저는 <b>대구경북지사 기술업무 담당 AI 챗봇</b>입니다.<br><br>
+
+                등록된 기술업무 규정집을 검색하여
+                질문과 관련성이 높은 내용을 찾아 답변해 드립니다.
+
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
 
-    # =====================================================
-    # AI 답변
-    # =====================================================
+    # -----------------------------------------------------
+    # 주의사항
+    # -----------------------------------------------------
 
-    with st.spinner(
-        "📚 선택한 규정집에서 관련 내용을 검색하고 있습니다..."
+    st.markdown(
+        """
+        <div class="notice-text">
+            ※ 선택한 규정집에 명시되지 않은 내용은
+            임의로 답변하지 않습니다.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # -----------------------------------------------------
+    # 규정집 목록 제목
+    # -----------------------------------------------------
+
+    st.markdown(
+        """
+        <div class="document-title">
+            📚 규정집 목록
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # -----------------------------------------------------
+    # 모든 규정집 버튼 표시
+    # -----------------------------------------------------
+
+    for filename in filenames:
+
+        if st.button(
+            f"📋 {filename}",
+            key=f"document_{filename}",
+            use_container_width=True
+        ):
+
+            # 선택한 규정집 저장
+            st.session_state.selected_file = filename
+
+            # 기존 대화 삭제
+            st.session_state.messages = []
+
+            # 화면 새로고침
+            st.rerun()
+
+
+# =========================================================
+# 14. 규정집 선택 후 - 질문 화면
+# =========================================================
+
+else:
+
+    selected_file = st.session_state.selected_file
+
+
+    # -----------------------------------------------------
+    # 선택한 규정집 표시
+    # -----------------------------------------------------
+
+    safe_selected_file = html.escape(
+        selected_file
+    )
+
+
+    st.markdown(
+        f"""
+        <div class="selected-card">
+
+            <div class="selected-label">
+                📚 현재 선택한 규정집
+            </div>
+
+            <div class="selected-file">
+                {safe_selected_file}
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # -----------------------------------------------------
+    # 규정집 목록으로 돌아가기 버튼
+    # -----------------------------------------------------
+
+    if st.button(
+        "📚 규정집 목록으로 돌아가기",
+        use_container_width=True
     ):
 
-        try:
+        st.session_state.selected_file = None
 
-            # ---------------------------------------------
-            # ① 벡터 검색
-            # ---------------------------------------------
+        st.session_state.messages = []
 
-            search_results = search_documents(
-                user_input,
-                st.session_state.selected_file,
-                top_k=6
+        st.rerun()
+
+
+    # -----------------------------------------------------
+    # 현재 선택한 규정집 안내
+    # -----------------------------------------------------
+
+    st.markdown(
+        """
+        <div class="notice-text">
+            🔎 현재 선택한 규정집의 내용만 검색하여 답변합니다.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # =====================================================
+    # 기존 대화 표시
+    # =====================================================
+
+    for message in st.session_state.messages:
+
+        if message["role"] == "user":
+
+            safe_content = html.escape(
+                str(message["content"])
             )
 
-
-            # ---------------------------------------------
-            # ② 관련 규정이 없는 경우
-            # ---------------------------------------------
-
-            if not search_results:
-
-                answer = (
-                    "해당 내용은 선택한 규정집에 "
-                    "명시되어 있지 않습니다."
-                )
-
-
-            else:
-
-                # -----------------------------------------
-                # ③ 검색 결과 정리
-                # -----------------------------------------
-
-                context_parts = []
-
-
-                for i, result in enumerate(
-                    search_results,
-                    start=1
-                ):
-
-                    context_parts.append(
-                        f"""
-[검색결과 {i}]
-
-문서명:
-{result["filename"]}
-
-페이지:
-{result["page"]}페이지
-
-내용:
-{result["text"]}
-"""
-                    )
-
-
-                search_context = "\n".join(
-                    context_parts
-                )
-
-
-                # -----------------------------------------
-                # ④ Gemini 프롬프트
-                # -----------------------------------------
-
-                prompt = f"""
-너는 주택관리공단 대구경북지사의
-기술업무 담당 AI 챗봇이다.
-
-사용자가 선택한 규정집의 검색 결과만을
-근거로 답변해야 한다.
-
-[선택된 규정집]
-
-{st.session_state.selected_file}
-
-[답변 원칙]
-
-1. 반드시 검색된 규정 문서의 내용을 근거로 답변한다.
-
-2. 검색된 내용에 없는 사항은 추측하지 않는다.
-
-3. 일반적인 지식이나 인터넷 정보를 사용하지 않는다.
-
-4. 답변 근거가 부족하면 다음 문장을 사용한다.
-
-"해당 내용은 선택한 규정집에 명시되어 있지 않습니다."
-
-5. 답변에는 관련 문서명과 페이지를 표시한다.
-
-6. 규정이나 절차는 이해하기 쉽도록
-항목별로 정리한다.
-
-7. 검색된 문서에 서로 다른 내용이 있으면
-임의로 판단하지 말고 차이를 설명한다.
-
-8. 답변은 한국어로 작성한다.
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-[검색된 규정 내용]
-
-{search_context}
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-[사용자 질문]
-
-{user_input}
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-[답변]
-"""
-
-
-                # -----------------------------------------
-                # ⑤ Gemini 호출
-                # -----------------------------------------
-
-                answer = None
-
-
-                for attempt in range(3):
-
-                    try:
-
-                        response = (
-                            client.models.generate_content(
-                                model="gemini-3.6-flash",
-                                contents=prompt
-                            )
-                        )
-
-
-                        answer = response.text
-
-
-                        if answer:
-
-                            break
-
-
-                    except Exception as e:
-
-                        error_text = str(e)
-
-
-                        if (
-                            "503" in error_text
-                            or "UNAVAILABLE" in error_text
-                        ):
-
-                            if attempt < 2:
-
-                                time.sleep(
-                                    2 ** attempt
-                                )
-
-                                continue
-
-
-                        answer = (
-                            "⚠️ Gemini AI 오류가 발생했습니다.\n\n"
-                            f"{error_text}"
-                        )
-
-                        break
-
-
-                if not answer:
-
-                    answer = (
-                        "⚠️ 현재 AI 서버가 "
-                        "응답하지 않습니다.\n\n"
-                        "잠시 후 다시 질문해 주세요."
-                    )
-
-
-            # =================================================
-            # 23. AI 답변 표시
-            # =================================================
-
-            st.html(
+            st.markdown(
                 f"""
+                <div class="user-bubble">
+                    {safe_content}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        else:
+
+            st.markdown(
+                """
                 <div class="ai-card">
 
                     <div class="ai-header">
@@ -1225,88 +1096,381 @@ if user_input:
                         </div>
 
                     </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                    <div class="ai-content">
+            st.markdown(
+                message["content"]
+            )
 
-                        {answer}
-
-                    </div>
-
-                </div>
+            st.markdown(
                 """
+                </div>
+                """,
+                unsafe_allow_html=True
             )
 
 
-            # =================================================
-            # 24. 답변 근거 표시
-            # =================================================
+    # =====================================================
+    # 질문 입력창
+    # =====================================================
 
-            if search_results:
+    user_input = st.chat_input(
+        "선택한 규정집에 대해 질문하세요."
+    )
 
-                shown_sources = set()
+
+    # =====================================================
+    # 질문 처리
+    # =====================================================
+
+    if user_input:
+
+        # -------------------------------------------------
+        # 사용자 질문 저장
+        # -------------------------------------------------
+
+        st.session_state.messages.append(
+            {
+                "role": "user",
+                "content": user_input
+            }
+        )
 
 
-                for result in search_results:
+        # -------------------------------------------------
+        # 사용자 질문 표시
+        # -------------------------------------------------
 
-                    source_key = (
-                        result["filename"],
-                        result["page"]
+        safe_user_input = html.escape(
+            user_input
+        )
+
+
+        st.markdown(
+            f"""
+            <div class="user-bubble">
+                {safe_user_input}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+        # =================================================
+        # AI 검색 및 답변
+        # =================================================
+
+        with st.spinner(
+            "📚 선택한 규정집에서 관련 내용을 검색하고 있습니다..."
+        ):
+
+            try:
+
+                # -----------------------------------------
+                # ① 선택한 PDF에서 검색
+                # -----------------------------------------
+
+                search_results = search_documents(
+                    user_input,
+                    selected_file,
+                    top_k=6
+                )
+
+
+                # -----------------------------------------
+                # ② 검색 결과가 없는 경우
+                # -----------------------------------------
+
+                if not search_results:
+
+                    answer = (
+                        "해당 내용은 선택한 규정집에 "
+                        "명시되어 있지 않습니다."
                     )
 
 
-                    if source_key in shown_sources:
+                else:
 
-                        continue
+                    # -------------------------------------
+                    # ③ 검색 결과 정리
+                    # -------------------------------------
+
+                    context_parts = []
 
 
-                    shown_sources.add(
-                        source_key
+                    for i, result in enumerate(
+                        search_results,
+                        start=1
+                    ):
+
+                        context_parts.append(
+                            f"""
+[검색결과 {i}]
+
+문서명:
+{result["filename"]}
+
+페이지:
+{result["page"]}페이지
+
+내용:
+{result["text"]}
+"""
+                        )
+
+
+                    search_context = "\n".join(
+                        context_parts
                     )
 
 
-                    st.html(
-                        f"""
-                        <div class="source-card">
+                    # -------------------------------------
+                    # ④ Gemini 프롬프트
+                    # -------------------------------------
 
-                            📄 <b>답변 근거</b><br>
+                    prompt = f"""
+너는 주택관리공단 대구경북지사의
+기술업무 담당 AI 챗봇이다.
 
-                            📋 {result["filename"]}<br>
+사용자가 선택한 규정집의 검색 결과만을
+근거로 답변해야 한다.
 
-                            📖 {result["page"]}페이지
+━━━━━━━━━━━━━━━━━━━━━━
+[선택된 규정집]
+━━━━━━━━━━━━━━━━━━━━━━
+
+{selected_file}
+
+━━━━━━━━━━━━━━━━━━━━━━
+[답변 원칙]
+━━━━━━━━━━━━━━━━━━━━━━
+
+1. 반드시 검색된 규정 문서의 내용을 근거로 답변한다.
+
+2. 검색된 내용에 없는 사항은 추측하거나 만들어내지 않는다.
+
+3. 일반적인 지식이나 인터넷 정보를 사용하지 않는다.
+
+4. 답변 근거가 부족하면 다음 문장을 사용한다.
+
+"해당 내용은 선택한 규정집에 명시되어 있지 않습니다."
+
+5. 답변에는 관련 문서명과 페이지를 표시한다.
+
+6. 규정이나 절차는 이해하기 쉽도록 항목별로 정리한다.
+
+7. 검색된 문서에 서로 다른 내용이 있으면
+임의로 판단하지 말고 차이를 설명한다.
+
+8. 답변은 한국어로 작성한다.
+
+━━━━━━━━━━━━━━━━━━━━━━
+[검색된 규정 내용]
+━━━━━━━━━━━━━━━━━━━━━━
+
+{search_context}
+
+━━━━━━━━━━━━━━━━━━━━━━
+[사용자 질문]
+━━━━━━━━━━━━━━━━━━━━━━
+
+{user_input}
+
+━━━━━━━━━━━━━━━━━━━━━━
+[답변]
+━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+
+                    # -------------------------------------
+                    # ⑤ Gemini 호출
+                    # -------------------------------------
+
+                    answer = None
+
+
+                    for attempt in range(3):
+
+                        try:
+
+                            response = (
+                                client.models.generate_content(
+                                    model="gemini-3.6-flash",
+                                    contents=prompt
+                                )
+                            )
+
+
+                            answer = response.text
+
+
+                            if answer:
+
+                                break
+
+
+                        except Exception as e:
+
+                            error_text = str(e)
+
+
+                            if (
+                                "503" in error_text
+                                or "UNAVAILABLE" in error_text
+                            ):
+
+                                if attempt < 2:
+
+                                    time.sleep(
+                                        2 ** attempt
+                                    )
+
+                                    continue
+
+
+                            answer = (
+                                "⚠️ Gemini AI 오류가 발생했습니다.\n\n"
+                                f"{error_text}"
+                            )
+
+                            break
+
+
+                    if not answer:
+
+                        answer = (
+                            "⚠️ 현재 AI 서버가 "
+                            "응답하지 않습니다.\n\n"
+                            "잠시 후 다시 질문해 주세요."
+                        )
+
+
+                # =================================================
+                # ⑥ AI 답변 표시
+                # =================================================
+
+                st.markdown(
+                    """
+                    <div class="ai-card">
+
+                        <div class="ai-header">
+
+                            <div class="ai-icon">
+                                🤖
+                            </div>
+
+                            <div>
+                                대구경북 기술업무 AI
+                            </div>
 
                         </div>
-                        """
-                    )
+
+                    """,
+                    unsafe_allow_html=True
+                )
+
+
+                # 답변은 Markdown으로 표시
+                # → 번호, 굵은 글씨, 표 등을 정상적으로 표시
+                st.markdown(
+                    answer
+                )
+
+
+                st.markdown(
+                    """
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+
+                # =================================================
+                # ⑦ 답변 근거
+                # =================================================
+
+                if search_results:
+
+                    shown_sources = set()
+
+
+                    for result in search_results:
+
+                        source_key = (
+                            result["filename"],
+                            result["page"]
+                        )
+
+
+                        if source_key in shown_sources:
+
+                            continue
+
+
+                        shown_sources.add(
+                            source_key
+                        )
+
+
+                        safe_filename = html.escape(
+                            result["filename"]
+                        )
+
+                        safe_page = html.escape(
+                            str(result["page"])
+                        )
+
+
+                        st.markdown(
+                            f"""
+                            <div class="source-card">
+
+                                📄 <b>답변 근거</b><br>
+
+                                📋 {safe_filename}<br>
+
+                                📖 {safe_page}페이지
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+
+                # =================================================
+                # ⑧ 답변 저장
+                # =================================================
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": answer
+                    }
+                )
 
 
             # =================================================
-            # 25. AI 답변 저장
+            # 오류 처리
             # =================================================
 
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": answer
-                }
-            )
+            except Exception as e:
+
+                error_answer = (
+                    "⚠️ 검색 중 오류가 발생했습니다.\n\n"
+                    f"{str(e)}"
+                )
 
 
-        except Exception as e:
-
-            error_answer = (
-                "⚠️ 검색 중 오류가 발생했습니다.\n\n"
-                f"{str(e)}"
-            )
+                st.error(
+                    error_answer
+                )
 
 
-            st.error(
-                error_answer
-            )
-
-
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": error_answer
-                }
-            )
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": error_answer
+                    }
+                )
