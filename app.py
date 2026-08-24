@@ -16,7 +16,7 @@ import time
 # =========================================================
 
 st.set_page_config(
-    page_title="대구경북 기술업무 AI 챗봇",
+    page_title="대구경북 AI 챗봇",
     page_icon="📚",
     layout="centered",
     initial_sidebar_state="collapsed"
