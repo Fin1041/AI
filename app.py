@@ -670,7 +670,7 @@ if st.session_state.selected_file is None:
 
     st.markdown(
         '<div class="ai-greeting">'
-        '대구경북지사 직원 여러분 안녕하세요!<br>'
+        '대구경북지사 직원 여러분 안녕하세요^^<br>'
         '무엇을 도와드릴까요?'
         '</div>',
         unsafe_allow_html=True
