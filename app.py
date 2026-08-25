@@ -16,8 +16,8 @@ import time
 # =========================================================
 
 st.set_page_config(
-    page_title="대구경북지사 기술업무 AI 비서",
-    page_icon="🤖",
+    page_title="주택관리공단 대구경북지사",
+    page_icon=" ",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -370,20 +370,13 @@ if "messages" not in st.session_state:
 # 4. 상단 화면
 # =========================================================
 
+
+
 st.markdown(
-    '<div class="top-company">🏠 대구경북지사</div>',
+    '<div class="top-title">🏠 대구경북지사 기술업무 AI 비서 🤖</div>',
     unsafe_allow_html=True
 )
 
-st.markdown(
-    '<div class="top-title">기술업무 AI 비서 🤖</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="top-subtitle">사내 규정과 기술업무 자료를 찾아드립니다.</div>',
-    unsafe_allow_html=True
-)
 
 st.markdown("---")
 
