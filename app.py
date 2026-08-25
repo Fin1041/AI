@@ -373,7 +373,7 @@ if "messages" not in st.session_state:
 
 
 st.markdown(
-    '<div class="top-title">🏠 이광림 바보 대구경북지사 기술업무 AI 챗봇 🤖</div>',
+    '<div class="top-title">🏠 대구경북지사 기술업무 AI 챗봇 🤖</div>',
     unsafe_allow_html=True
 )
 
