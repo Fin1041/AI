@@ -686,7 +686,7 @@ if st.session_state.selected_file is None:
 
     st.markdown(
         '<div class="ai-description">'
-        '대구경북지사 기술업무 AI 비서입니다.'
+        '대구경북지사 기술업무 AI 챗봇입니다.'
         '</div>',
         unsafe_allow_html=True
     )
@@ -717,35 +717,7 @@ if st.session_state.selected_file is None:
     )
 
 
-    # -----------------------------------------------------
-    # 추천 질문
-    # -----------------------------------------------------
-
-    st.markdown(
-        '<div class="section-title">💡 이런 질문을 해보세요</div>',
-        unsafe_allow_html=True
-    )
-
-
-    st.button(
-        "🔧 시설물 점검 기준은 어떻게 되나요?",
-        key="sample_question_1",
-        use_container_width=True
-    )
-
-
-    st.button(
-        "📋 하자보수 관련 기준을 알려주세요.",
-        key="sample_question_2",
-        use_container_width=True
-    )
-
-
-    st.button(
-        "🛡️ 방재근무 운영 기준은 무엇인가요?",
-        key="sample_question_3",
-        use_container_width=True
-    )
+ 
 
 
     # -----------------------------------------------------
@@ -839,34 +811,7 @@ else:
         st.rerun()
 
 
-    # -----------------------------------------------------
-    # 추천 질문
-    # -----------------------------------------------------
-
-    if len(st.session_state.messages) == 0:
-
-        st.markdown(
-            '<div class="section-title">💡 추천 질문</div>',
-            unsafe_allow_html=True
-        )
-
-
-        st.button(
-            "🔧 이 규정의 주요 시설물 관리 기준은?",
-            key="selected_sample_1",
-            use_container_width=True
-        )
-
-
-        st.button(
-            "📋 이 규정에서 반드시 확인해야 할 사항은?",
-            key="selected_sample_2",
-            use_container_width=True
-        )
-
-
-    st.markdown("---")
-
+   
 
     # -----------------------------------------------------
     # 이전 대화 표시
