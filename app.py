@@ -16,8 +16,8 @@ import time
 # =========================================================
 
 st.set_page_config(
-    page_title="대구경북 기술업무 AI 챗봇",
-    page_icon="📚",
+    page_title="대구경북지사 기술업무 AI 비서",
+    page_icon="🤖",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -25,22 +25,35 @@ st.set_page_config(
 
 # =========================================================
 # 2. 화면 디자인
-#    ※ HTML div 사용하지 않음
+#    ※ 기존 검색/AI 기능은 변경하지 않고
+#       화면 디자인만 AI 비서형으로 변경
 # =========================================================
 
 st.markdown(
     """
     <style>
 
+    /* =====================================================
+       전체 화면
+       ===================================================== */
+
     .stApp {
-        background-color: #f5f8fc;
+        background: #f5f8fc;
     }
 
+
+    /* 가운데 전체 영역 */
+
     .main .block-container {
-        max-width: 850px;
-        padding-top: 20px;
-        padding-bottom: 100px;
+        max-width: 720px;
+        padding-top: 18px;
+        padding-left: 18px;
+        padding-right: 18px;
+        padding-bottom: 80px;
     }
+
+
+    /* Streamlit 기본 요소 */
 
     footer {
         visibility: hidden;
@@ -51,26 +64,245 @@ st.markdown(
         height: 0;
     }
 
-    /* 버튼 디자인 */
+
+    /* =====================================================
+       상단 제목
+       ===================================================== */
+
+    .top-company {
+        font-size: 18px;
+        font-weight: 700;
+        color: #20364f;
+        margin-top: 5px;
+        margin-bottom: 3px;
+    }
+
+    .top-title {
+        font-size: 30px;
+        font-weight: 800;
+        color: #16283d;
+        margin-top: 0px;
+        margin-bottom: 5px;
+        letter-spacing: -1.5px;
+    }
+
+    .top-subtitle {
+        font-size: 14px;
+        color: #718096;
+        margin-bottom: 15px;
+    }
+
+
+    /* =====================================================
+       AI 로봇 영역
+       ===================================================== */
+
+    .ai-avatar {
+        text-align: center;
+        font-size: 70px;
+        line-height: 1;
+        margin-top: 20px;
+        margin-bottom: 8px;
+    }
+
+
+    .ai-greeting {
+        text-align: center;
+        color: #172b43;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin-top: 8px;
+        margin-bottom: 5px;
+    }
+
+
+    .ai-description {
+        text-align: center;
+        color: #7a8797;
+        font-size: 14px;
+        margin-bottom: 22px;
+    }
+
+
+    /* =====================================================
+       안내 카드
+       ===================================================== */
+
+    .welcome-card {
+        background: #ffffff;
+        border: 1px solid #e3ebf5;
+        border-radius: 22px;
+        padding: 18px 20px;
+        margin-top: 8px;
+        margin-bottom: 18px;
+        box-shadow: 0 5px 20px rgba(35, 80, 130, 0.06);
+    }
+
+
+    .welcome-title {
+        color: #175ca8;
+        font-size: 15px;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+
+    .welcome-text {
+        color: #66758a;
+        font-size: 13px;
+        line-height: 1.7;
+    }
+
+
+    /* =====================================================
+       추천 질문 제목
+       ===================================================== */
+
+    .section-title {
+        color: #24364d;
+        font-size: 17px;
+        font-weight: 800;
+        margin-top: 18px;
+        margin-bottom: 10px;
+    }
+
+
+    /* =====================================================
+       버튼 디자인
+       ===================================================== */
 
     div.stButton > button {
         width: 100%;
-        border-radius: 14px !important;
-        border: 1px solid #c7ddf7 !important;
-        background-color: white !important;
-        color: #175ca8 !important;
-        font-weight: 700 !important;
-        min-height: 45px !important;
-        text-align: left !important;
+        min-height: 48px !important;
+
+        border-radius: 15px !important;
+
+        border: 1px solid #dce7f4 !important;
+
+        background-color: #ffffff !important;
+
+        color: #29435f !important;
+
+        font-size: 14px !important;
+
+        font-weight: 600 !important;
+
+        box-shadow: 0 3px 12px rgba(35, 80, 130, 0.04);
+
+        transition: 0.2s;
     }
+
 
     div.stButton > button:hover {
-        background-color: #eef6ff !important;
-        border-color: #2677d9 !important;
-        color: #0756c9 !important;
+        background-color: #f1f7ff !important;
+
+        border-color: #8dbcf0 !important;
+
+        color: #1765b5 !important;
+
+        transform: translateY(-1px);
     }
 
-    /* 모바일 */
+
+    /* =====================================================
+       규정집 버튼
+       ===================================================== */
+
+    .document-area {
+        margin-top: 25px;
+    }
+
+
+    /* =====================================================
+       선택된 규정집
+       ===================================================== */
+
+    .selected-document {
+        background: #eaf4ff;
+        border: 1px solid #c9e1fa;
+        border-radius: 16px;
+        padding: 14px 16px;
+        margin-top: 8px;
+        margin-bottom: 12px;
+    }
+
+
+    .selected-document-title {
+        color: #1761a9;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+
+    .selected-document-name {
+        color: #243c56;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.5;
+        word-break: keep-all;
+    }
+
+
+    /* =====================================================
+       채팅 영역
+       ===================================================== */
+
+    [data-testid="stChatMessage"] {
+        border-radius: 18px;
+        margin-bottom: 10px;
+    }
+
+
+    /* 사용자 메시지 */
+
+    [data-testid="stChatMessage"]:has(
+        [data-testid="chatAvatarIcon-user"]
+    ) {
+        background-color: #eaf4ff;
+    }
+
+
+    /* =====================================================
+       Chat Input
+       ===================================================== */
+
+    [data-testid="stChatInput"] {
+        padding-bottom: 10px;
+    }
+
+
+    [data-testid="stChatInput"] textarea {
+        border-radius: 18px !important;
+        border: 1px solid #cbdff5 !important;
+        background: white !important;
+        min-height: 52px !important;
+        font-size: 14px !important;
+    }
+
+
+    [data-testid="stChatInput"] textarea:focus {
+        border-color: #4e93db !important;
+        box-shadow: 0 0 0 2px rgba(78, 147, 219, 0.12) !important;
+    }
+
+
+    /* =====================================================
+       구분선
+       ===================================================== */
+
+    hr {
+        border: none;
+        border-top: 1px solid #dce5ef;
+        margin-top: 18px;
+        margin-bottom: 18px;
+    }
+
+
+    /* =====================================================
+       모바일
+       ===================================================== */
 
     @media (max-width: 600px) {
 
@@ -78,6 +310,40 @@ st.markdown(
             padding-left: 14px;
             padding-right: 14px;
             padding-top: 10px;
+            padding-bottom: 70px;
+        }
+
+
+        .top-company {
+            font-size: 16px;
+        }
+
+
+        .top-title {
+            font-size: 27px;
+        }
+
+
+        .ai-avatar {
+            font-size: 62px;
+            margin-top: 15px;
+        }
+
+
+        .ai-greeting {
+            font-size: 22px;
+        }
+
+
+        .welcome-card {
+            border-radius: 19px;
+            padding: 16px;
+        }
+
+
+        div.stButton > button {
+            min-height: 46px !important;
+            font-size: 13px !important;
         }
 
     }
@@ -89,22 +355,41 @@ st.markdown(
 
 
 # =========================================================
-# 3. 상단 제목
+# 3. 세션 상태
+# =========================================================
+
+if "selected_file" not in st.session_state:
+    st.session_state.selected_file = None
+
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+
+# =========================================================
+# 4. 상단 화면
 # =========================================================
 
 st.markdown(
-    "# 🏘️ 대구경북지사"
+    '<div class="top-company">🏠 대구경북지사</div>',
+    unsafe_allow_html=True
 )
 
 st.markdown(
-    "  # 기술업무 AI 챗봇 🤖 "
+    '<div class="top-title">기술업무 AI 비서 🤖</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="top-subtitle">사내 규정과 기술업무 자료를 찾아드립니다.</div>',
+    unsafe_allow_html=True
 )
 
 st.markdown("---")
 
 
 # =========================================================
-# 4. Gemini API 확인
+# 5. Gemini API 확인
 # =========================================================
 
 api_key = st.secrets.get("GEMINI_API_KEY")
@@ -125,7 +410,7 @@ if not api_key:
 
 
 # =========================================================
-# 5. Gemini 클라이언트
+# 6. Gemini 클라이언트
 # =========================================================
 
 try:
@@ -144,7 +429,7 @@ except Exception as e:
 
 
 # =========================================================
-# 6. 임베딩 모델
+# 7. 임베딩 모델
 # =========================================================
 
 @st.cache_resource
@@ -163,7 +448,7 @@ with st.spinner(
 
 
 # =========================================================
-# 7. 벡터 DB
+# 8. 벡터 DB
 # =========================================================
 
 VECTOR_FOLDER = "vector_db"
@@ -180,7 +465,7 @@ DOCUMENTS_PATH = os.path.join(
 
 
 # =========================================================
-# 8. 벡터 DB 확인
+# 9. 벡터 DB 확인
 # =========================================================
 
 if not os.path.exists(INDEX_PATH):
@@ -202,7 +487,7 @@ if not os.path.exists(DOCUMENTS_PATH):
 
 
 # =========================================================
-# 9. 벡터 DB 불러오기
+# 10. 벡터 DB 불러오기
 # =========================================================
 
 @st.cache_resource
@@ -232,7 +517,7 @@ with st.spinner(
 
 
 # =========================================================
-# 10. PDF 목록 만들기
+# 11. PDF 목록 만들기
 # =========================================================
 
 filenames = []
@@ -251,109 +536,7 @@ for document in documents:
 
 
 # =========================================================
-# 11. 세션 상태
-# =========================================================
-
-if "selected_file" not in st.session_state:
-
-    st.session_state.selected_file = None
-
-
-if "messages" not in st.session_state:
-
-    st.session_state.messages = []
-
-
-# =========================================================
-# 12. 규정집 선택 전 화면
-# =========================================================
-
-if st.session_state.selected_file is None:
-
-    st.info(
-        "🤖 안녕하십니까.\n\n"
-        "저는 **대구경북지사 기술업무 담당 AI 챗봇**입니다.\n\n"
-        "등록된 기술업무 규정집을 검색하여 "
-        "질문과 관련성이 높은 내용을 찾아 답변해 드립니다.\n\n"
-        "※ **선택한 규정집에 명시되지 않은 내용은 "
-        "임의로 답변하지 않습니다.**"
-    )
-
-
-    st.markdown(
-        "### 📚 질문할 규정집을 선택하세요."
-    )
-
-
-    # ---------------------------------------------
-    # PDF 목록
-    # ---------------------------------------------
-
-    for i, filename in enumerate(filenames):
-
-        if st.button(
-            f"📋 {filename}",
-            key=f"pdf_{i}",
-            use_container_width=True
-        ):
-
-            st.session_state.selected_file = filename
-
-            st.session_state.messages = []
-
-            st.rerun()
-
-
-# =========================================================
-# 13. 규정집 선택 후 화면
-# =========================================================
-
-else:
-
-    selected_file = st.session_state.selected_file
-
-
-    # ---------------------------------------------
-    # 현재 선택된 규정집
-    # ---------------------------------------------
-
-    st.success(
-        f"📚 현재 선택된 규정집\n\n"
-        f"**{selected_file}**"
-    )
-
-
-    # ---------------------------------------------
-    # 목록으로 돌아가기
-    # ---------------------------------------------
-
-    if st.button(
-        "📚 규정집 목록",
-        key="back_to_documents",
-        use_container_width=True
-    ):
-
-        st.session_state.selected_file = None
-
-        st.session_state.messages = []
-
-        st.rerun()
-
-
-    st.markdown("---")
-
-
-    st.markdown(
-        f"### 💬 {selected_file}"
-    )
-
-    st.caption(
-        "선택한 규정집의 내용만을 검색하여 답변합니다."
-    )
-
-
-# =========================================================
-# 14. 검색 함수
+# 12. 검색 함수
 # =========================================================
 
 def search_documents(
@@ -473,15 +656,221 @@ def search_documents(
 
 
 # =========================================================
-# 15. 질문 화면
+# 13. 첫 화면
 # =========================================================
 
-if st.session_state.selected_file is not None:
+if st.session_state.selected_file is None:
+
+    # -----------------------------------------------------
+    # AI 비서 아이콘
+    # -----------------------------------------------------
+
+    st.markdown(
+        '<div class="ai-avatar">🤖</div>',
+        unsafe_allow_html=True
+    )
 
 
-    # ---------------------------------------------
+    # -----------------------------------------------------
+    # 인사말
+    # -----------------------------------------------------
+
+    st.markdown(
+        '<div class="ai-greeting">'
+        '안녕하세요!<br>'
+        '무엇을 도와드릴까요?'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+
+    st.markdown(
+        '<div class="ai-description">'
+        '대구경북지사 기술업무 AI 비서입니다.'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+
+    # -----------------------------------------------------
+    # 안내 카드
+    # -----------------------------------------------------
+
+    st.markdown(
+        """
+        <div class="welcome-card">
+
+        <div class="welcome-title">
+        🤖 규정에 근거하여 답변합니다
+        </div>
+
+        <div class="welcome-text">
+        등록된 사내 규정집에서 질문과 관련성이 높은
+        내용을 찾아 답변해 드립니다.<br>
+        <b>선택한 규정집에 명시되지 않은 내용은
+        임의로 답변하지 않습니다.</b>
+        </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # -----------------------------------------------------
+    # 추천 질문
+    # -----------------------------------------------------
+
+    st.markdown(
+        '<div class="section-title">💡 이런 질문을 해보세요</div>',
+        unsafe_allow_html=True
+    )
+
+
+    st.button(
+        "🔧 시설물 점검 기준은 어떻게 되나요?",
+        key="sample_question_1",
+        use_container_width=True
+    )
+
+
+    st.button(
+        "📋 하자보수 관련 기준을 알려주세요.",
+        key="sample_question_2",
+        use_container_width=True
+    )
+
+
+    st.button(
+        "🛡️ 방재근무 운영 기준은 무엇인가요?",
+        key="sample_question_3",
+        use_container_width=True
+    )
+
+
+    # -----------------------------------------------------
+    # 규정집 선택
+    # -----------------------------------------------------
+
+    st.markdown(
+        '<div class="section-title">📚 먼저 규정집을 선택해주세요</div>',
+        unsafe_allow_html=True
+    )
+
+
+    for i, filename in enumerate(filenames):
+
+        if st.button(
+            f"📄  {filename}",
+            key=f"pdf_{i}",
+            use_container_width=True
+        ):
+
+            st.session_state.selected_file = filename
+
+            st.session_state.messages = []
+
+            st.rerun()
+
+
+# =========================================================
+# 14. 규정집 선택 후 화면
+# =========================================================
+
+else:
+
+    selected_file = st.session_state.selected_file
+
+
+    # -----------------------------------------------------
+    # AI 비서 아이콘
+    # -----------------------------------------------------
+
+    st.markdown(
+        '<div class="ai-avatar" style="font-size:55px;">🤖</div>',
+        unsafe_allow_html=True
+    )
+
+
+    st.markdown(
+        '<div class="ai-greeting" style="font-size:21px;">'
+        '무엇이 궁금하신가요?'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+
+    # -----------------------------------------------------
+    # 현재 선택된 규정집
+    # -----------------------------------------------------
+
+    st.markdown(
+        f"""
+        <div class="selected-document">
+
+        <div class="selected-document-title">
+        📚 현재 선택된 규정집
+        </div>
+
+        <div class="selected-document-name">
+        {selected_file}
+        </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # -----------------------------------------------------
+    # 규정집 목록으로 돌아가기
+    # -----------------------------------------------------
+
+    if st.button(
+        "↩️ 다른 규정집 선택",
+        key="back_to_documents",
+        use_container_width=True
+    ):
+
+        st.session_state.selected_file = None
+
+        st.session_state.messages = []
+
+        st.rerun()
+
+
+    # -----------------------------------------------------
+    # 추천 질문
+    # -----------------------------------------------------
+
+    if len(st.session_state.messages) == 0:
+
+        st.markdown(
+            '<div class="section-title">💡 추천 질문</div>',
+            unsafe_allow_html=True
+        )
+
+
+        st.button(
+            "🔧 이 규정의 주요 시설물 관리 기준은?",
+            key="selected_sample_1",
+            use_container_width=True
+        )
+
+
+        st.button(
+            "📋 이 규정에서 반드시 확인해야 할 사항은?",
+            key="selected_sample_2",
+            use_container_width=True
+        )
+
+
+    st.markdown("---")
+
+
+    # -----------------------------------------------------
     # 이전 대화 표시
-    # ---------------------------------------------
+    # -----------------------------------------------------
 
     for message in st.session_state.messages:
 
@@ -494,12 +883,12 @@ if st.session_state.selected_file is not None:
             )
 
 
-    # ---------------------------------------------
+    # -----------------------------------------------------
     # 질문 입력
-    # ---------------------------------------------
+    # -----------------------------------------------------
 
     user_input = st.chat_input(
-        "선택한 규정집에 대해 질문하세요."
+        "궁금한 내용을 입력하세요..."
     )
 
 
@@ -564,7 +953,7 @@ if st.session_state.selected_file is not None:
                 if not search_results:
 
                     status.update(
-                        label="❌ 관련 규정을 찾지 못했습니다.",
+                        label="관련 규정을 찾지 못했습니다.",
                         state="complete",
                         expanded=False
                     )
@@ -587,7 +976,7 @@ if st.session_state.selected_file is not None:
 
                     status.update(
                         label=(
-                            f"✅ 관련 규정 "
+                            f"관련 규정 "
                             f"{len(search_results)}건을 찾았습니다."
                         ),
                         state="running",
@@ -689,7 +1078,7 @@ if st.session_state.selected_file is not None:
 
                     status.update(
                         label=(
-                            "🤖 관련 규정을 확인했습니다. "
+                            "🤖 규정을 확인했습니다. "
                             "답변을 작성하고 있습니다..."
                         ),
                         state="running",
@@ -769,10 +1158,8 @@ if st.session_state.selected_file is not None:
                     st.markdown(answer)
 
 
-                   
-
                 # =================================
-                # ⑨ 답변 저장
+                # ⑧ 답변 저장
                 # =================================
 
                 st.session_state.messages.append(
