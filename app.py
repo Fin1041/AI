@@ -97,7 +97,7 @@ st.markdown(
 )
 
 st.markdown(
-    "#   기술업무 AI 챗봇 💻 "
+    "   기술업무 AI 챗봇 🤖 "
 )
 
 st.markdown("---")
