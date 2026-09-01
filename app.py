@@ -312,8 +312,8 @@ except Exception as e:
 # 아래 3곳만 본인 GitHub 정보로 수정하세요.
 # =========================================================
 
-GITHUB_USERNAME = "YOUR_GITHUB_USERNAME"
-GITHUB_REPOSITORY = "YOUR_REPOSITORY"
+GITHUB_USERNAME = "Fin1041"
+GITHUB_REPOSITORY = "AI"
 GITHUB_BRANCH = "main"
 HWPX_FILENAME = "notice_template.hwpx"
 
