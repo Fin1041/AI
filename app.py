@@ -883,6 +883,253 @@ def generate_notice_content(
 
     return title, body, basis
 
+
+def _replace_first_text_node(paragraph_xml, value):
+    """
+    기존 hp:p / hp:run 구조는 유지하고 첫 hp:t 텍스트만 변경한다.
+    빈 문단인 경우 기존 hp:run의 속성을 유지한 채 hp:t만 추가한다.
+    """
+    safe = escape(str(value), quote=False)
+
+    t_match = re.search(
+        r"<hp:t\b[^>]*>.*?</hp:t>",
+        paragraph_xml,
+        re.DOTALL
+    )
+
+    if t_match:
+        return (
+            paragraph_xml[:t_match.start()]
+            + "<hp:t>"
+            + safe
+            + "</hp:t>"
+            + paragraph_xml[t_match.end():]
+        )
+
+    # 빈 문단의 self-closing hp:run을 확장
+    run_match = re.search(
+        r"<hp:run\b([^>]*)/>",
+        paragraph_xml
+    )
+
+    if run_match:
+        attrs = run_match.group(1)
+
+        run_xml = (
+            "<hp:run"
+            + attrs
+            + "><hp:t>"
+            + safe
+            + "</hp:t></hp:run>"
+        )
+
+        return (
+            paragraph_xml[:run_match.start()]
+            + run_xml
+            + paragraph_xml[run_match.end():]
+        )
+
+    raise RuntimeError(
+        "본문용 기존 HWPX 문단에서 텍스트를 넣을 위치를 찾지 못했습니다."
+    )
+
+
+def create_hwpx_safely(
+    template_path,
+    output_path,
+    replacements,
+    notice_content
+):
+    """
+    원본 HWPX 구조를 유지하면서 section0.xml의 기존 텍스트만 교체한다.
+
+    중요:
+    - 새 namespace/tag를 생성하지 않는다.
+    - 새 문단을 임의 생성하지 않는다.
+    - 템플릿에 미리 만들어진 본문 문단 5개를 사용한다.
+    - mimetype은 ZIP 첫 항목/비압축으로 유지한다.
+    """
+
+    lines = [
+        line.strip()
+        for line in str(notice_content).splitlines()
+        if line.strip()
+    ][:5]
+
+    if not lines:
+        raise RuntimeError(
+            "AI가 생성한 안내내용이 비어 있습니다."
+        )
+
+    with zipfile.ZipFile(template_path, "r") as zin:
+
+        names = zin.namelist()
+
+        if not names:
+            raise RuntimeError("HWPX 파일이 비어 있습니다.")
+
+        if names[0] != "mimetype":
+            raise RuntimeError(
+                "HWPX 템플릿의 mimetype 위치가 올바르지 않습니다."
+            )
+
+        section_name = "Contents/section0.xml"
+
+        if section_name not in names:
+            raise RuntimeError(
+                "Contents/section0.xml을 찾을 수 없습니다."
+            )
+
+        data = {
+            name: zin.read(name)
+            for name in names
+        }
+
+        xml = data[section_name].decode("utf-8")
+
+        # -------------------------------------------------
+        # 일반 placeholder 치환
+        # -------------------------------------------------
+        for key, value in replacements.items():
+
+            if key == "{{안내내용}}":
+                continue
+
+            xml = xml.replace(
+                key,
+                escape(str(value), quote=False)
+            )
+
+        # -------------------------------------------------
+        # {{안내내용}}이 들어있는 기존 문단부터
+        # 본문용 5개 기존 문단을 순서대로 찾는다.
+        # -------------------------------------------------
+        paragraphs = list(
+            re.finditer(
+                r"<hp:p\b[^>]*>.*?</hp:p>",
+                xml,
+                re.DOTALL
+            )
+        )
+
+        body_index = None
+
+        for i, match in enumerate(paragraphs):
+
+            if "{{안내내용}}" in match.group(0):
+                body_index = i
+                break
+
+        if body_index is None:
+            raise RuntimeError(
+                "HWPX 템플릿에서 {{안내내용}}을 찾지 못했습니다."
+            )
+
+        targets = paragraphs[
+            body_index:body_index + 5
+        ]
+
+        if len(targets) < 5:
+            raise RuntimeError(
+                "HWPX 템플릿에 본문용 기존 문단 5개가 없습니다."
+            )
+
+        # -------------------------------------------------
+        # 기존 5개 문단을 그대로 사용하고 텍스트만 교체
+        # -------------------------------------------------
+        pieces = []
+        cursor = 0
+
+        for i, match in enumerate(targets):
+
+            pieces.append(
+                xml[cursor:match.start()]
+            )
+
+            paragraph = match.group(0)
+
+            value = (
+                lines[i]
+                if i < len(lines)
+                else ""
+            )
+
+            paragraph = _replace_first_text_node(
+                paragraph,
+                value
+            )
+
+            pieces.append(paragraph)
+            cursor = match.end()
+
+        pieces.append(
+            xml[cursor:]
+        )
+
+        xml = "".join(pieces)
+
+        # XML 파싱 검사
+        try:
+            ET.fromstring(xml)
+        except ET.ParseError as e:
+            raise RuntimeError(
+                "수정된 HWPX XML이 올바르지 않습니다: "
+                + str(e)
+            ) from e
+
+        data[section_name] = xml.encode("utf-8")
+
+        # -------------------------------------------------
+        # 원본 ZIP 메타데이터 최대한 유지
+        # -------------------------------------------------
+        with zipfile.ZipFile(
+            output_path,
+            "w"
+        ) as zout:
+
+            for name in names:
+
+                original_info = zin.getinfo(name)
+                info = copy.copy(original_info)
+
+                if name == "mimetype":
+                    info.compress_type = zipfile.ZIP_STORED
+
+                zout.writestr(
+                    info,
+                    data[name]
+                )
+
+    # -----------------------------------------------------
+    # 최종 결과 HWPX 자체 검사
+    # -----------------------------------------------------
+    with zipfile.ZipFile(
+        output_path,
+        "r"
+    ) as check_zip:
+
+        bad = check_zip.testzip()
+
+        if bad is not None:
+            raise RuntimeError(
+                "생성된 HWPX ZIP 검증 실패: "
+                + bad
+            )
+
+        names_after = check_zip.namelist()
+
+        if not names_after or names_after[0] != "mimetype":
+            raise RuntimeError(
+                "생성된 HWPX의 mimetype 위치가 잘못되었습니다."
+            )
+
+        if check_zip.read("mimetype") != b"application/hwp+zip":
+            raise RuntimeError(
+                "생성된 HWPX의 mimetype 값이 잘못되었습니다."
+            )
+
+    return output_path
+
 # =========================================================
 # 14. 안내문 생성 화면
 # =========================================================
