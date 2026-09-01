@@ -664,8 +664,8 @@ def search_documents(
 
 HWPX_TEMPLATE_URL = (
     "https://raw.githubusercontent.com/"
-    "YOUR_GITHUB_USERNAME/"
-    "YOUR_REPOSITORY/"
+    "Fin1041/"
+    "AI/"
     "main/templates/notice_template.hwpx"
 )
 
