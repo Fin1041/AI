@@ -655,6 +655,62 @@ def create_hwpx(
 # =========================================================
 
 
+
+def generate_content_with_retry(
+    prompt,
+    max_attempts=5
+):
+    """
+    Gemini 503/UNAVAILABLE 일시 오류를 자동 재시도한다.
+    503이 아닌 오류는 즉시 호출자에게 전달한다.
+    """
+    last_error = None
+
+    for attempt in range(max_attempts):
+
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.1-flash-lite",
+                contents=prompt
+            )
+
+            text = (response.text or "").strip()
+
+            if not text:
+                raise RuntimeError(
+                    "Gemini가 빈 응답을 반환했습니다."
+                )
+
+            return text
+
+        except Exception as e:
+
+            last_error = e
+            error_text = str(e).upper()
+
+            is_temporary = (
+                "503" in error_text
+                or "UNAVAILABLE" in error_text
+                or "RESOURCE_EXHAUSTED" in error_text
+                or "429" in error_text
+            )
+
+            if not is_temporary:
+                raise
+
+            if attempt < max_attempts - 1:
+                # 1, 2, 4, 8초 + 약간의 랜덤 지연
+                import random
+                delay = (2 ** attempt) + random.uniform(0.2, 1.0)
+                time.sleep(delay)
+
+    raise RuntimeError(
+        "Gemini 서버가 일시적으로 혼잡하여 "
+        f"{max_attempts}회 재시도했지만 응답하지 않았습니다. "
+        "잠시 후 다시 생성해 주세요.\n\n"
+        f"마지막 오류: {last_error}"
+    )
+
 def generate_notice_content(
     request_text,
     subject,
@@ -696,7 +752,7 @@ def generate_notice_content(
 {request_text}
 
 [관련 규정집/문서 검색 결과]
-{regulation_context if regulation_context else "현재 선택된 규정집에서 관련 내용을 찾지 못했습니다."}
+{regulation_context if regulation_context else "관련 규정집에서 관련 내용을 찾지 못했거나 현재 규정집을 선택하지 않았습니다."}
 
 [가장 중요한 작성 원칙]
 1. '규정집/공식 문서 검색 결과'에 있는 내용을 최우선 근거로 사용한다.
@@ -733,12 +789,10 @@ def generate_notice_content(
 검색 결과에서 확인되지 않으면 '검색된 규정집에서 특정 조문 확인 안 됨'이라고 작성한다.
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.1-flash-lite",
-        contents=prompt
+    text = generate_content_with_retry(
+        prompt=prompt,
+        max_attempts=5
     )
-
-    text = (response.text or "").strip()
 
     title = ""
     body = ""
@@ -947,7 +1001,7 @@ if st.session_state.show_notice_generator:
             try:
 
                 with st.spinner(
-                    "🤖 관련 기준을 검토하고 안내문을 작성하고 있습니다..."
+                    "🤖 관련 규정을 확인하고 안내문을 작성하고 있습니다..."
                 ):
 
                     # 선택된 규정집에서 건명/요청사항과 관련된 내용을 검색
@@ -1079,20 +1133,42 @@ if st.session_state.show_notice_generator:
 
             except Exception as e:
 
-                st.error(
-                    "❌ 안내문 생성 중 오류가 발생했습니다."
-                )
+                error_text = str(e)
+                upper_error = error_text.upper()
 
-                st.code(
-                    str(e),
-                    language="text"
-                )
+                if (
+                    "503" in upper_error
+                    or "UNAVAILABLE" in upper_error
+                    or "RESOURCE_EXHAUSTED" in upper_error
+                    or "429" in upper_error
+                ):
+                    st.warning(
+                        "🤖 Gemini AI 서버가 현재 혼잡합니다.\n\n"
+                        "자동으로 여러 차례 재시도했지만 응답하지 않았습니다. "
+                        "잠시 후 다시 **AI 안내문 생성**을 눌러주세요."
+                    )
 
-                st.info(
-                    "GitHub의 templates/notice_template.hwpx가 "
-                    "원본 템플릿인지 확인해주세요. "
-                    "{{안내내용}}과 본문용 기존 문단 4개가 필요합니다."
-                )
+                elif "HWPX" in upper_error or "안내내용" in error_text:
+                    st.error(
+                        "❌ 한글파일 양식 처리 중 오류가 발생했습니다."
+                    )
+                    st.code(
+                        error_text,
+                        language="text"
+                    )
+                    st.info(
+                        "GitHub의 templates/notice_template.hwpx가 "
+                        "원본 템플릿인지 확인해주세요."
+                    )
+
+                else:
+                    st.error(
+                        "❌ 안내문 생성 중 오류가 발생했습니다."
+                    )
+                    st.code(
+                        error_text,
+                        language="text"
+                    )
 
     st.markdown("")
 
