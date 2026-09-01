@@ -790,19 +790,17 @@ def replace_hwpx_placeholders(temp_dir, replacements):
     return replaced_count
 
 
+
 def replace_hwpx_notice_content_as_paragraphs(
     temp_dir,
     notice_content
 ):
     """
-    HWPX를 손상시키지 않도록 기존 hp:p 문단을 직접 복제/수정한다.
+    기존 HWPX 문단을 새로 만들거나 XML 구조를 변경하지 않고,
+    템플릿에 미리 만들어 둔 5개의 문단을 그대로 재사용한다.
 
-    핵심:
-    - XML namespace/prefix를 새로 만들지 않는다.
-    - 기존 hp:p/hp:r/hp:t 구조를 그대로 사용한다.
-    - 첫 번째 문단은 첫 문장으로 바꾸고,
-      나머지 문장은 기존 문단을 복제한다.
-    - placeholder가 들어간 원래 문단의 구조/속성을 유지한다.
+    notice_template.hwpx의 {{안내내용}} 문단부터 이어지는 빈 문단들을
+    본문 5줄로 채운다. 따라서 HWPX 손상 가능성을 최소화한다.
     """
 
     lines = [
@@ -833,78 +831,110 @@ def replace_hwpx_notice_content_as_paragraphs(
             if "{{안내내용}}" not in xml:
                 continue
 
-            # placeholder가 있는 hp:p를 찾는다.
-            p_match = re.search(
-                r"<hp:p\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:p>",
-                xml,
+            # placeholder paragraph와 그 뒤의 4개 paragraph를 잡는다.
+            p_pattern = re.compile(
+                r"<hp:p\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:p>"
+                r"(?:<hp:p\b[^>]*>.*?</hp:p>){4}",
                 re.DOTALL
             )
 
-            if not p_match:
-                continue
+            match = p_pattern.search(xml)
 
-            original_p = p_match.group(0)
+            if not match:
+                # 최소한 placeholder 문단 하나만 찾아본다.
+                match = re.search(
+                    r"<hp:p\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:p>",
+                    xml,
+                    re.DOTALL
+                )
 
-            # 기존 문단에서 placeholder가 포함된 hp:t를 찾는다.
-            t_match = re.search(
-                r"<hp:t\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:t>",
-                original_p,
+                if not match:
+                    continue
+
+            block = match.group(0)
+
+            paragraphs = re.findall(
+                r"<hp:p\b[^>]*>.*?</hp:p>",
+                block,
                 re.DOTALL
             )
 
-            if not t_match:
+            if not paragraphs:
                 continue
 
-            # 첫 문단: 기존 XML 구조를 그대로 유지하고 텍스트만 교체
-            first_p = original_p.replace(
-                t_match.group(0),
-                "<hp:t>" + escape(lines[0], quote=False) + "</hp:t>",
-                1
-            )
+            new_paragraphs = []
 
-            # 기존 문단의 문단 속성/런 속성을 그대로 사용하되,
-            # 텍스트만 바꾼 추가 문단을 만든다.
-            additional_paragraphs = []
+            for i, paragraph in enumerate(paragraphs):
 
-            for line in lines[1:]:
+                if i < len(lines):
+                    text = escape(
+                        lines[i],
+                        quote=False
+                    )
 
-                paragraph = original_p.replace(
-                    t_match.group(0),
-                    "<hp:t>" + escape(line, quote=False) + "</hp:t>",
-                    1
-                )
+                    # 해당 문단 안의 첫 hp:t가 있으면 텍스트만 교체
+                    t_match = re.search(
+                        r"<hp:t\b[^>]*>.*?</hp:t>",
+                        paragraph,
+                        re.DOTALL
+                    )
 
-                # 원본 paragraph의 ID가 있는 경우 중복 ID를 피하기 위해
-                # hp:p의 id 속성을 제거한다.
-                paragraph = re.sub(
-                    r'\s+id="[^"]*"',
-                    "",
-                    paragraph,
-                    count=1
-                )
+                    if t_match:
+                        new_paragraph = (
+                            paragraph[:t_match.start()]
+                            + "<hp:t>"
+                            + text
+                            + "</hp:t>"
+                            + paragraph[t_match.end():]
+                        )
+                    else:
+                        # 빈 hp:run이면 기존 charPrIDRef를 유지하면서
+                        # hp:t만 넣는다.
+                        run_match = re.search(
+                            r"<hp:run\b([^>]*)/>",
+                            paragraph
+                        )
 
-                additional_paragraphs.append(
-                    paragraph
-                )
+                        if run_match:
+                            attrs = run_match.group(1)
+                            run_xml = (
+                                "<hp:run"
+                                + attrs
+                                + "><hp:t>"
+                                + text
+                                + "</hp:t></hp:run>"
+                            )
 
-            replacement = "\n".join(
-                [first_p] + additional_paragraphs
-            )
+                            new_paragraph = (
+                                paragraph[:run_match.start()]
+                                + run_xml
+                                + paragraph[run_match.end():]
+                            )
+                        else:
+                            new_paragraph = paragraph
+
+                    new_paragraphs.append(
+                        new_paragraph
+                    )
+
+                else:
+                    # 남는 빈 문단은 원본 그대로 유지
+                    new_paragraphs.append(paragraph)
+
+            replacement = "\n".join(new_paragraphs)
 
             new_xml = (
-                xml[:p_match.start()]
+                xml[:match.start()]
                 + replacement
-                + xml[p_match.end():]
+                + xml[match.end():]
             )
 
-            # XML 원문을 그대로 UTF-8로 저장.
-            # XML 선언/namespace/다른 HWPX 파일은 변경하지 않는다.
             Path(file_path).write_text(
                 new_xml,
                 encoding="utf-8"
             )
 
-            return len(lines)
+            return min(len(lines), len(paragraphs))
 
     return 0
 
@@ -913,9 +943,7 @@ def replace_hwpx_placeholders(
     temp_dir,
     replacements
 ):
-    """
-    안내내용을 제외한 일반 placeholder를 치환한다.
-    """
+    """일반 {{...}} 항목을 기존 XML 구조를 유지한 채 치환한다."""
 
     replaced_count = 0
 
@@ -960,13 +988,217 @@ def replace_hwpx_placeholders(
                     replaced_count += count
 
             if xml_text != original_text:
-
                 Path(file_path).write_text(
                     xml_text,
                     encoding="utf-8"
                 )
 
     return replaced_count
+
+
+def create_hwpx_safely(
+    template_path,
+    output_path,
+    replacements,
+    notice_content
+):
+    """
+    원본 HWPX ZIP의 파일 구조/순서/압축방식을 최대한 그대로 유지하고
+    Contents/section0.xml만 수정한다.
+
+    HWPX의 mimetype은 반드시 첫 번째 ZIP 항목이며 STORED 상태를 유지한다.
+    """
+
+    import io
+
+    with zipfile.ZipFile(
+        template_path,
+        "r"
+    ) as zin:
+
+        names = zin.namelist()
+
+        if not names or names[0] != "mimetype":
+            raise RuntimeError(
+                "정상적인 HWPX 템플릿이 아닙니다: mimetype 위치 오류"
+            )
+
+        section_name = "Contents/section0.xml"
+
+        if section_name not in names:
+            raise RuntimeError(
+                "HWPX에 Contents/section0.xml이 없습니다."
+            )
+
+        # 원본 ZIP 전체 파일을 메모리에 읽는다.
+        data_map = {
+            name: zin.read(name)
+            for name in names
+        }
+
+        section_xml = data_map[section_name].decode(
+            "utf-8"
+        )
+
+        # 일반 항목 치환
+        for key, value in replacements.items():
+
+            if key == "{{안내내용}}":
+                continue
+
+            section_xml = section_xml.replace(
+                key,
+                escape(str(value), quote=False)
+            )
+
+        # 본문 placeholder 문단을 5개의 기존 문단으로 채움
+        lines = [
+            line.strip()
+            for line in str(notice_content).splitlines()
+            if line.strip()
+        ][:5]
+
+        p_pattern = re.compile(
+            r"<hp:p\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:p>"
+            r"(?:<hp:p\b[^>]*>.*?</hp:p>){4}",
+            re.DOTALL
+        )
+
+        match = p_pattern.search(section_xml)
+
+        if not match:
+            raise RuntimeError(
+                "원본 템플릿에서 {{안내내용}}과 "
+                "본문용 문단 5개를 찾지 못했습니다."
+            )
+
+        block = match.group(0)
+
+        paragraphs = re.findall(
+            r"<hp:p\b[^>]*>.*?</hp:p>",
+            block,
+            re.DOTALL
+        )
+
+        if len(paragraphs) < 5:
+            raise RuntimeError(
+                "본문용 문단이 5개보다 적습니다."
+            )
+
+        new_paragraphs = []
+
+        for i in range(5):
+
+            paragraph = paragraphs[i]
+
+            text = escape(
+                lines[i] if i < len(lines) else "",
+                quote=False
+            )
+
+            t_match = re.search(
+                r"<hp:t\b[^>]*>.*?</hp:t>",
+                paragraph,
+                re.DOTALL
+            )
+
+            if t_match:
+
+                paragraph = (
+                    paragraph[:t_match.start()]
+                    + "<hp:t>"
+                    + text
+                    + "</hp:t>"
+                    + paragraph[t_match.end():]
+                )
+
+            else:
+
+                run_match = re.search(
+                    r"<hp:run\b([^>]*)/>",
+                    paragraph
+                )
+
+                if run_match:
+
+                    attrs = run_match.group(1)
+
+                    run_xml = (
+                        "<hp:run"
+                        + attrs
+                        + "><hp:t>"
+                        + text
+                        + "</hp:t></hp:run>"
+                    )
+
+                    paragraph = (
+                        paragraph[:run_match.start()]
+                        + run_xml
+                        + paragraph[run_match.end():]
+                    )
+
+            new_paragraphs.append(paragraph)
+
+        section_xml = (
+            section_xml[:match.start()]
+            + "\n".join(new_paragraphs)
+            + section_xml[match.end():]
+        )
+
+        data_map[section_name] = section_xml.encode(
+            "utf-8"
+        )
+
+        # 새 ZIP 생성
+        with zipfile.ZipFile(
+            output_path,
+            "w"
+        ) as zout:
+
+            for name in names:
+
+                info = zin.getinfo(name)
+
+                # 원본 ZIPInfo를 복사해 압축방식/권한/시간 등을 유지
+                new_info = zipfile.ZipInfo(
+                    filename=info.filename,
+                    date_time=info.date_time
+                )
+
+                new_info.compress_type = info.compress_type
+                new_info.comment = info.comment
+                new_info.extra = info.extra
+                new_info.create_system = info.create_system
+                new_info.create_version = info.create_version
+                new_info.extract_version = info.extract_version
+                new_info.flag_bits = info.flag_bits
+
+                if name == "mimetype":
+                    # HWPX 규격상 mimetype은 압축하지 않는다.
+                    new_info.compress_type = zipfile.ZIP_STORED
+
+                zout.writestr(
+                    new_info,
+                    data_map[name]
+                )
+
+    # 생성된 HWPX 자체가 유효한 ZIP인지 확인
+    with zipfile.ZipFile(
+        output_path,
+        "r"
+    ) as check_zip:
+
+        if check_zip.testzip() is not None:
+            raise RuntimeError(
+                "생성된 HWPX ZIP 구조 검증에 실패했습니다."
+            )
+
+        if check_zip.namelist()[0] != "mimetype":
+            raise RuntimeError(
+                "생성된 HWPX의 mimetype 위치가 잘못되었습니다."
+            )
+
+    return output_path
 
 # =========================================================
 # 14. 안내문 생성 화면
@@ -1162,68 +1394,14 @@ if st.session_state.show_notice_generator:
                         "{{관리소명}}": office,
                     }
 
-                    with tempfile.TemporaryDirectory() as temp_dir:
-
-                        with zipfile.ZipFile(
-                            template_path,
-                            "r"
-                        ) as zip_ref:
-                            zip_ref.extractall(temp_dir)
-
-                        # 일반 항목 치환
-                        replaced_count = replace_hwpx_placeholders(
-                            temp_dir,
-                            replacements
-                        )
-
-                        # 안내문 본문은 실제 HWPX 문단으로 삽입
-                        body_count = (
-                            replace_hwpx_notice_content_as_paragraphs(
-                                temp_dir,
-                                notice_content
-                            )
-                        )
-
-                        replaced_count += body_count
-
-                        if replaced_count == 0:
-                            raise RuntimeError(
-                                "HWPX 양식에서 {{}} 치환 위치를 "
-                                "찾지 못했습니다."
-                            )
-
-                        # HWPX는 ZIP 기반이므로 다시 압축
-                        # HWPX는 ZIP 패키지이므로 수정된 폴더를
-                        # 다시 HWPX로 압축한다.
-                        with zipfile.ZipFile(
-                            output_path,
-                            "w",
-                            compression=zipfile.ZIP_DEFLATED
-                        ) as zip_ref:
-
-                            for root, dirs, files in os.walk(temp_dir):
-
-                                # 폴더 자체는 별도 엔트리로 만들지 않고
-                                # 파일 경로만 기록한다.
-                                for filename in files:
-
-                                    file_path = os.path.join(
-                                        root,
-                                        filename
-                                    )
-
-                                    arcname = os.path.relpath(
-                                        file_path,
-                                        temp_dir
-                                    ).replace(
-                                        os.sep,
-                                        "/"
-                                    )
-
-                                    zip_ref.write(
-                                        file_path,
-                                        arcname
-                                    )
+                    # 원본 HWPX의 ZIP 구조를 유지한 채
+                    # Contents/section0.xml만 안전하게 수정한다.
+                    create_hwpx_safely(
+                        template_path=template_path,
+                        output_path=output_path,
+                        replacements=replacements,
+                        notice_content=notice_content
+                    )
 
                 with open(
                     output_path,
@@ -1235,7 +1413,7 @@ if st.session_state.show_notice_generator:
                     label="📥 완성된 안내문 한글파일 다운로드",
                     data=hwpx_data,
                     file_name=f"{subject}_안내문.hwpx",
-                    mime="application/vnd.hancom.hwpx",
+                    mime="application/octet-stream",
                     use_container_width=True
                 )
 
