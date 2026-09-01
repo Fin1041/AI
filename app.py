@@ -684,7 +684,7 @@ def generate_notice_content(
 
 [작성 규칙]
 1. 제목을 1개 작성한다.
-2. 안내문 본문은 반드시 5줄 이내로 작성한다.
+2. 안내문 본문은 반드시 4줄 이내로 작성한다.
 3. 각 문장은 반드시 한 줄씩 줄바꿈하여 작성한다.
 4. 본문은 입주민이 이해하기 쉬운 정중한 행정문체로 작성한다.
 4. 사용자의 요청과 관련된 법령·고시·공식 기준을 고려한다.
@@ -996,6 +996,7 @@ def replace_hwpx_placeholders(
     return replaced_count
 
 
+
 def create_hwpx_safely(
     template_path,
     output_path,
@@ -1003,99 +1004,113 @@ def create_hwpx_safely(
     notice_content
 ):
     """
-    원본 HWPX ZIP의 파일 구조/순서/압축방식을 최대한 그대로 유지하고
-    Contents/section0.xml만 수정한다.
+    실제 notice_template.hwpx의 기존 문단 구조를 사용한다.
 
-    HWPX의 mimetype은 반드시 첫 번째 ZIP 항목이며 STORED 상태를 유지한다.
+    현재 템플릿:
+      {{안내내용}} 문단 1개
+      + 빈 문단 3개
+      = 본문 4줄 영역
+
+    새 문단/줄바꿈 태그를 만들지 않고,
+    기존 hp:p와 hp:run을 그대로 유지하면서 텍스트만 넣는다.
     """
 
-    import io
+    lines = [
+        line.strip()
+        for line in str(notice_content).splitlines()
+        if line.strip()
+    ][:4]
 
-    with zipfile.ZipFile(
-        template_path,
-        "r"
-    ) as zin:
+    if not lines:
+        raise RuntimeError("AI가 생성한 안내문 본문이 없습니다.")
+
+    with zipfile.ZipFile(template_path, "r") as zin:
 
         names = zin.namelist()
 
         if not names or names[0] != "mimetype":
             raise RuntimeError(
-                "정상적인 HWPX 템플릿이 아닙니다: mimetype 위치 오류"
+                "HWPX 템플릿의 mimetype 구조가 올바르지 않습니다."
             )
 
         section_name = "Contents/section0.xml"
 
         if section_name not in names:
             raise RuntimeError(
-                "HWPX에 Contents/section0.xml이 없습니다."
+                "Contents/section0.xml을 찾을 수 없습니다."
             )
 
-        # 원본 ZIP 전체 파일을 메모리에 읽는다.
-        data_map = {
+        data = {
             name: zin.read(name)
             for name in names
         }
 
-        section_xml = data_map[section_name].decode(
-            "utf-8"
-        )
+        xml = data[section_name].decode("utf-8")
 
-        # 일반 항목 치환
+        # 일반 placeholder 치환
         for key, value in replacements.items():
 
             if key == "{{안내내용}}":
                 continue
 
-            section_xml = section_xml.replace(
+            xml = xml.replace(
                 key,
                 escape(str(value), quote=False)
             )
 
-        # 본문 placeholder 문단을 5개의 기존 문단으로 채움
-        lines = [
-            line.strip()
-            for line in str(notice_content).splitlines()
-            if line.strip()
-        ][:5]
-
-        p_pattern = re.compile(
-            r"<hp:p\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:p>"
-            r"(?:<hp:p\b[^>]*>.*?</hp:p>){4}",
-            re.DOTALL
-        )
-
-        match = p_pattern.search(section_xml)
-
-        if not match:
-            raise RuntimeError(
-                "원본 템플릿에서 {{안내내용}}과 "
-                "본문용 문단 5개를 찾지 못했습니다."
-            )
-
-        block = match.group(0)
-
-        paragraphs = re.findall(
+        # 모든 기존 문단 찾기
+        paragraphs = list(re.finditer(
             r"<hp:p\b[^>]*>.*?</hp:p>",
-            block,
+            xml,
             re.DOTALL
-        )
+        ))
 
-        if len(paragraphs) < 5:
+        body_index = None
+
+        for i, m in enumerate(paragraphs):
+
+            if "{{안내내용}}" in m.group(0):
+                body_index = i
+                break
+
+        if body_index is None:
             raise RuntimeError(
-                "본문용 문단이 5개보다 적습니다."
+                "템플릿에서 {{안내내용}}을 찾지 못했습니다."
             )
 
-        new_paragraphs = []
+        targets = paragraphs[
+            body_index:body_index + 4
+        ]
 
-        for i in range(5):
+        if len(targets) < 4:
+            raise RuntimeError(
+                "안내내용 영역의 기존 문단이 4개 미만입니다."
+            )
 
-            paragraph = paragraphs[i]
+        # 기존 4개 문단의 위치는 유지하고 내용만 채운다.
+        pieces = []
+        cursor = 0
 
-            text = escape(
-                lines[i] if i < len(lines) else "",
+        for i, m in enumerate(targets):
+
+            pieces.append(
+                xml[cursor:m.start()]
+            )
+
+            paragraph = m.group(0)
+
+            value = (
+                lines[i]
+                if i < len(lines)
+                else ""
+            )
+
+            safe_text = escape(
+                value,
                 quote=False
             )
 
+            # 1) {{안내내용}} 문단처럼 hp:t가 있는 경우
             t_match = re.search(
                 r"<hp:t\b[^>]*>.*?</hp:t>",
                 paragraph,
@@ -1107,49 +1122,63 @@ def create_hwpx_safely(
                 paragraph = (
                     paragraph[:t_match.start()]
                     + "<hp:t>"
-                    + text
+                    + safe_text
                     + "</hp:t>"
                     + paragraph[t_match.end():]
                 )
 
             else:
-
+                # 2) 빈 기존 문단:
+                # 기존 hp:run self-closing 구조만 확장하고
+                # charPrIDRef/문단 속성/linesegarray는 그대로 유지
                 run_match = re.search(
                     r"<hp:run\b([^>]*)/>",
                     paragraph
                 )
 
-                if run_match:
-
-                    attrs = run_match.group(1)
-
-                    run_xml = (
-                        "<hp:run"
-                        + attrs
-                        + "><hp:t>"
-                        + text
-                        + "</hp:t></hp:run>"
+                if not run_match:
+                    raise RuntimeError(
+                        "본문용 빈 문단의 기존 hp:run 구조를 "
+                        "찾지 못했습니다."
                     )
 
-                    paragraph = (
-                        paragraph[:run_match.start()]
-                        + run_xml
-                        + paragraph[run_match.end():]
-                    )
+                attrs = run_match.group(1)
 
-            new_paragraphs.append(paragraph)
+                run_xml = (
+                    "<hp:run"
+                    + attrs
+                    + "><hp:t>"
+                    + safe_text
+                    + "</hp:t></hp:run>"
+                )
 
-        section_xml = (
-            section_xml[:match.start()]
-            + "\n".join(new_paragraphs)
-            + section_xml[match.end():]
+                paragraph = (
+                    paragraph[:run_match.start()]
+                    + run_xml
+                    + paragraph[run_match.end():]
+                )
+
+            pieces.append(paragraph)
+            cursor = m.end()
+
+        pieces.append(
+            xml[cursor:]
         )
 
-        data_map[section_name] = section_xml.encode(
-            "utf-8"
-        )
+        xml = "".join(pieces)
 
-        # 새 ZIP 생성
+        # XML 자체 검증
+        try:
+            ET.fromstring(xml)
+        except ET.ParseError as e:
+            raise RuntimeError(
+                "수정된 HWPX XML 검증 실패: "
+                + str(e)
+            ) from e
+
+        data[section_name] = xml.encode("utf-8")
+
+        # 원본 ZIP 엔트리 순서를 그대로 유지
         with zipfile.ZipFile(
             output_path,
             "w"
@@ -1159,13 +1188,17 @@ def create_hwpx_safely(
 
                 info = zin.getinfo(name)
 
-                # 원본 ZIPInfo를 복사해 압축방식/권한/시간 등을 유지
                 new_info = zipfile.ZipInfo(
                     filename=info.filename,
                     date_time=info.date_time
                 )
 
-                new_info.compress_type = info.compress_type
+                new_info.compress_type = (
+                    zipfile.ZIP_STORED
+                    if name == "mimetype"
+                    else info.compress_type
+                )
+
                 new_info.comment = info.comment
                 new_info.extra = info.extra
                 new_info.create_system = info.create_system
@@ -1173,30 +1206,44 @@ def create_hwpx_safely(
                 new_info.extract_version = info.extract_version
                 new_info.flag_bits = info.flag_bits
 
-                if name == "mimetype":
-                    # HWPX 규격상 mimetype은 압축하지 않는다.
-                    new_info.compress_type = zipfile.ZIP_STORED
-
                 zout.writestr(
                     new_info,
-                    data_map[name]
+                    data[name]
                 )
 
-    # 생성된 HWPX 자체가 유효한 ZIP인지 확인
+    # ZIP/HWPX 무결성 검사
     with zipfile.ZipFile(
         output_path,
         "r"
-    ) as check_zip:
+    ) as check:
 
-        if check_zip.testzip() is not None:
+        bad = check.testzip()
+
+        if bad is not None:
             raise RuntimeError(
-                "생성된 HWPX ZIP 구조 검증에 실패했습니다."
+                "생성된 HWPX ZIP 검증 실패: " + bad
             )
 
-        if check_zip.namelist()[0] != "mimetype":
+        if check.namelist()[0] != "mimetype":
             raise RuntimeError(
-                "생성된 HWPX의 mimetype 위치가 잘못되었습니다."
+                "생성된 HWPX mimetype 위치 오류"
             )
+
+        if check.read("mimetype") != b"application/hwp+zip":
+            raise RuntimeError(
+                "생성된 HWPX mimetype 값 오류"
+            )
+
+        # section XML 최종 파싱
+        final_xml = check.read(section_name).decode("utf-8")
+
+        try:
+            ET.fromstring(final_xml)
+        except ET.ParseError as e:
+            raise RuntimeError(
+                "최종 HWPX section XML 파싱 실패: "
+                + str(e)
+            ) from e
 
     return output_path
 
@@ -1429,8 +1476,9 @@ if st.session_state.show_notice_generator:
                 )
 
                 st.info(
-                    "GitHub의 templates/notice_template.hwpx 파일과 "
-                    "GitHub 사용자명·저장소명을 확인해주세요."
+                    "GitHub의 templates/notice_template.hwpx가 "
+                    "원본 템플릿인지 확인해주세요. "
+                    "{{안내내용}}과 본문용 빈 문단 5개가 필요합니다."
                 )
 
     st.markdown("")
