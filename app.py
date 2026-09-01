@@ -1284,7 +1284,7 @@ def show_notice_generator():
     )
 
     st.info(
-        "관련 규정을 먼저 확인하여 "
+        "plan.pdf의 관련 규정을 먼저 확인하여 "
         "근거가 있으면 안내내용에 직접 포함합니다."
     )
 
