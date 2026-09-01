@@ -663,61 +663,114 @@ def search_documents(
 # AI 안내문 생성
 # =========================================================
 
-HWPX_TEMPLATE_URL = (
-    "https://raw.githubusercontent.com/"
-    "Fin1041/"
-    "AI/"
-    "main/templates/notice_template.hwpx"
-)
+HWPX_TEMPLATE_URLS = [
+    (
+        f"https://raw.githubusercontent.com/"
+        f"{Fin1041}/{AI}/"
+        f"{main}/templates/notice_template.hwpx"
+    ),
+ 
+]
 
 
 
 
-def download_hwpx_template(url):
-    """GitHub raw HWPX 다운로드 및 ZIP 형식 검증."""
-    request = urllib.request.Request(
-        url,
-        headers={"User-Agent": "Mozilla/5.0"}
-    )
 
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            data = response.read()
-    except Exception as e:
-        raise RuntimeError(
-            "GitHub에서 HWPX 템플릿을 가져오지 못했습니다: " + str(e)
-        )
+def download_hwpx_template(urls):
+    """
+    GitHub에서 HWPX 원본 양식을 다운로드한다.
+    새 템플릿(번호형 안내내용)을 먼저 시도하고
+    실패하면 기존 notice_template.hwpx를 시도한다.
+    """
 
-    if not data:
-        raise RuntimeError("GitHub에서 빈 HWPX 파일을 받았습니다.")
+    if isinstance(urls, str):
+        urls = [urls]
 
-    try:
-        with zipfile.ZipFile(
-            __import__("io").BytesIO(data), "r"
-        ) as z:
-            names = z.namelist()
-            if not names or names[0] != "mimetype":
-                raise RuntimeError(
-                    "GitHub 파일이 정상적인 HWPX 템플릿이 아닙니다."
+    errors = []
+
+    for url in urls:
+
+        try:
+
+            request = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+
+            with urllib.request.urlopen(
+                request,
+                timeout=30
+            ) as response:
+                data = response.read()
+
+            if not data:
+                raise RuntimeError("빈 파일입니다.")
+
+            with zipfile.ZipFile(
+                __import__("io").BytesIO(data),
+                "r"
+            ) as z:
+
+                names = z.namelist()
+
+                if not names or names[0] != "mimetype":
+                    raise RuntimeError(
+                        "정상적인 HWPX ZIP이 아닙니다."
+                    )
+
+                if z.read("mimetype") != b"application/hwp+zip":
+                    raise RuntimeError(
+                        "HWPX mimetype이 올바르지 않습니다."
+                    )
+
+                if "Contents/section0.xml" not in names:
+                    raise RuntimeError(
+                        "section0.xml이 없습니다."
+                    )
+
+                section = z.read(
+                    "Contents/section0.xml"
+                ).decode("utf-8")
+
+                # 새 양식 우선 확인
+                has_new = all(
+                    f"{{{{안내내용{i}}}}}" in section
+                    for i in range(1, 6)
                 )
-    except zipfile.BadZipFile as e:
-        raise RuntimeError(
-            "GitHub에서 받은 파일이 HWPX가 아닙니다. "
-            "templates/notice_template.hwpx 경로를 확인해주세요."
-        ) from e
 
-    f = tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=".hwpx"
+                # 구 양식도 허용
+                has_old = "{{안내내용}}" in section
+
+                if not (has_new or has_old):
+                    raise RuntimeError(
+                        "안내내용 placeholder를 찾지 못했습니다."
+                    )
+
+            f = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".hwpx"
+            )
+
+            try:
+                f.write(data)
+                f.flush()
+            finally:
+                f.close()
+
+            return f.name
+
+        except Exception as e:
+            errors.append(
+                f"{url}: {e}"
+            )
+
+    raise RuntimeError(
+        "GitHub에서 정상적인 안내문 템플릿을 찾지 못했습니다.\n\n"
+        + "\n".join(errors)
+        + "\n\n"
+        "GitHub templates 폴더에 "
+        "`notice_template(2).hwpx`를 올려주세요."
     )
-    try:
-        f.write(data)
-        f.flush()
-    finally:
-        f.close()
-
-    return f.name
-
 
 def _gemini_notice_request(prompt):
     """Gemini 일시 오류를 최대 5회 재시도."""
@@ -1090,7 +1143,8 @@ def generate_notice_content(
 
 
 
-def create_hwpx_from_template(
+
+def create_notice_hwpx(
     template_path,
     output_path,
     title,
@@ -1104,50 +1158,29 @@ def create_hwpx_from_template(
     office
 ):
     """
-    HWPX 원본 구조 보존 방식.
-
-    지원 템플릿:
-      A) {{안내내용1}} ~ {{안내내용7}}
-      B) {{안내내용}} + 그 아래 기존 빈 문단 최대 7개
-
-    새 문단/namespace를 만들지 않고 기존 문단의 text만 교체한다.
+    notice_template(2).hwpx의
+    {{안내내용1}}~{{안내내용5}} 기존 문단을 사용한다.
     """
 
-    body_lines = [
+    lines = [
         line.strip()
         for line in str(body).splitlines()
         if line.strip()
     ][:5]
 
-    if not body_lines:
-        raise RuntimeError("AI가 생성한 안내내용이 없습니다.")
-
-    replacements = {
-        "{{공고일자}}": notice_date,
-        "{{공고기한}}": notice_deadline,
-        "{{제목}}": str(title)[:15],
-        "{{건 명}}": subject,
-        "{{건명}}": subject,
-        "{{일 시}}": work_date,
-        "{{일시}}": work_date,
-        "{{업 체}}": company,
-        "{{업체}}": company,
-        "{{전화번호}}": phone,
-        "{{관리소명}}": office,
-    }
-
-    with zipfile.ZipFile(template_path, "r") as zin:
+    with zipfile.ZipFile(
+        template_path,
+        "r"
+    ) as zin:
 
         names = zin.namelist()
 
         if not names or names[0] != "mimetype":
             raise RuntimeError(
-                "원본 HWPX의 mimetype 구조가 올바르지 않습니다."
+                "HWPX 원본 구조가 올바르지 않습니다."
             )
 
-        section = "Contents/section0.xml"
-
-        if section not in names:
+        if "Contents/section0.xml" not in names:
             raise RuntimeError(
                 "Contents/section0.xml이 없습니다."
             )
@@ -1157,37 +1190,36 @@ def create_hwpx_from_template(
             for name in names
         }
 
-        # 일반 placeholder 치환
-        for name in names:
-
-            if not name.lower().endswith(".xml"):
-                continue
-
-            try:
-                xml_text = data[name].decode("utf-8")
-            except UnicodeDecodeError:
-                continue
-
-            for key, value in replacements.items():
-
-                xml_text = xml_text.replace(
-                    key,
-                    html.escape(
-                        str(value),
-                        quote=False
-                    )
-                )
-
-            data[name] = xml_text.encode("utf-8")
-
+        section = "Contents/section0.xml"
         xml = data[section].decode("utf-8")
 
-        # ------------------------------------------------------
-        # A) {{안내내용1}} ~ {{안내내용7}} 방식
-        # ------------------------------------------------------
+        replacements = {
+            "{{공고일자}}": notice_date,
+            "{{공고기한}}": notice_deadline,
+            "{{제목}}": str(title)[:15],
+            "{{건 명}}": subject,
+            "{{건명}}": subject,
+            "{{일 시}}": work_date,
+            "{{일시}}": work_date,
+            "{{업 체}}": company,
+            "{{업체}}": company,
+            "{{전화번호}}": phone,
+            "{{관리소명}}": office,
+        }
+
+        for key, value in replacements.items():
+            xml = xml.replace(
+                key,
+                html.escape(
+                    str(value),
+                    quote=False
+                )
+            )
+
+        # 새 템플릿: 안내내용1~5
         numbered_keys = [
             f"{{{{안내내용{i}}}}}"
-            for i in range(1, 8)
+            for i in range(1, 6)
         ]
 
         if all(
@@ -1199,7 +1231,6 @@ def create_hwpx_from_template(
                 numbered_keys
             ):
 
-                # 해당 placeholder를 포함하는 단일 paragraph
                 p = re.search(
                     r"<hp:p\b[^>]*>"
                     r"(?:(?!<hp:p\b)[\s\S])*?"
@@ -1211,7 +1242,9 @@ def create_hwpx_from_template(
                 )
 
                 if not p:
-                    continue
+                    raise RuntimeError(
+                        f"{key} 문단을 찾지 못했습니다."
+                    )
 
                 paragraph = p.group(0)
 
@@ -1225,12 +1258,12 @@ def create_hwpx_from_template(
 
                 if not t:
                     raise RuntimeError(
-                        f"{key}의 기존 텍스트 영역을 찾지 못했습니다."
+                        f"{key}의 텍스트 영역을 찾지 못했습니다."
                     )
 
                 value = (
-                    body_lines[i]
-                    if i < len(body_lines)
+                    lines[i]
+                    if i < len(lines)
                     else ""
                 )
 
@@ -1251,12 +1284,10 @@ def create_hwpx_from_template(
                     + xml[p.end():]
                 )
 
-        # ------------------------------------------------------
-        # B) {{안내내용}} + 기존 빈 문단 방식
-        # ------------------------------------------------------
+        # 구 템플릿: {{안내내용}} + 기존 문단
         elif "{{안내내용}}" in xml:
 
-            paragraphs = list(
+            p_matches = list(
                 re.finditer(
                     r"<hp:p\b[^>]*>.*?</hp:p>",
                     xml,
@@ -1264,34 +1295,31 @@ def create_hwpx_from_template(
                 )
             )
 
-            body_index = next(
+            body_idx = next(
                 (
                     i
-                    for i, match in enumerate(paragraphs)
+                    for i, match in enumerate(p_matches)
                     if "{{안내내용}}" in match.group(0)
                 ),
                 None
             )
 
-            if body_index is None:
+            if body_idx is None:
                 raise RuntimeError(
-                    "HWPX에서 {{안내내용}} 위치를 찾지 못했습니다."
+                    "기존 {{안내내용}} 문단을 찾지 못했습니다."
                 )
 
-            # 현재 사용자가 추가한 본문 문단을 최대 7개 사용
-            targets = paragraphs[
-                body_index:body_index + 7
+            targets = p_matches[
+                body_idx:body_idx + 5
             ]
 
-            if len(targets) < 5:
+            if len(targets) < len(lines):
                 raise RuntimeError(
-                    "안내내용을 넣을 기존 문단이 5개 미만입니다. "
-                    "한글 양식에 본문용 문단을 최소 5개 만들어 주세요."
+                    "기존 템플릿의 본문 문단이 부족합니다."
                 )
 
-            # 역순으로 수정하여 XML offset 보존
             for i in range(
-                min(5, len(targets)) - 1,
+                len(lines) - 1,
                 -1,
                 -1
             ):
@@ -1299,68 +1327,26 @@ def create_hwpx_from_template(
                 match = targets[i]
                 paragraph = match.group(0)
 
-                value = (
-                    body_lines[i]
-                    if i < len(body_lines)
-                    else ""
-                )
-
-                text_match = re.search(
+                t = re.search(
                     r"<hp:t\b[^>]*>.*?</hp:t>",
                     paragraph,
                     re.DOTALL
                 )
 
-                if text_match:
-
-                    paragraph = (
-                        paragraph[:text_match.start()]
-                        + "<hp:t>"
-                        + html.escape(
-                            value,
-                            quote=False
-                        )
-                        + "</hp:t>"
-                        + paragraph[text_match.end():]
+                if not t:
+                    raise RuntimeError(
+                        f"본문 {i+1}번째 텍스트 영역을 찾지 못했습니다."
                     )
 
-                else:
-
-                    run_match = re.search(
-                        r"<hp:run\b([^>]*)/>",
-                        paragraph,
-                        re.DOTALL
+                paragraph = (
+                    paragraph[:t.start()]
+                    + "<hp:t>"
+                    + html.escape(
+                        lines[i],
+                        quote=False
                     )
-
-                    if not run_match:
-                        raise RuntimeError(
-                            f"본문 {i+1}번째 기존 문단에 "
-                            "텍스트 입력 위치가 없습니다."
-                        )
-
-                    run_xml = (
-                        "<hp:run"
-                        + run_match.group(1)
-                        + "><hp:t>"
-                        + html.escape(
-                            value,
-                            quote=False
-                        )
-                        + "</hp:t></hp:run>"
-                    )
-
-                    paragraph = (
-                        paragraph[:run_match.start()]
-                        + run_xml
-                        + paragraph[run_match.end():]
-                    )
-
-                # 기존 줄 간격을 조금 넓힘
-                paragraph = re.sub(
-                    r'<hp:lineseg([^>]*)spacing="[^"]*"',
-                    r'<hp:lineseg\1spacing="1350"',
-                    paragraph,
-                    count=1
+                    + "</hp:t>"
+                    + paragraph[t.end():]
                 )
 
                 xml = (
@@ -1370,23 +1356,14 @@ def create_hwpx_from_template(
                 )
 
         else:
-
             raise RuntimeError(
-                "HWPX 템플릿에서 {{안내내용}} 또는 "
-                "{{안내내용1}}~{{안내내용7}}을 찾지 못했습니다."
+                "HWPX 템플릿에서 안내내용 위치를 찾지 못했습니다."
             )
 
-        # XML 검증
-        try:
-            ET.fromstring(xml)
-        except ET.ParseError as e:
-            raise RuntimeError(
-                "수정된 HWPX XML 검증 실패: " + str(e)
-            )
-
+        ET.fromstring(xml)
         data[section] = xml.encode("utf-8")
 
-        # 원본 ZIP 구조 유지
+        # ZIP 원본 속성 유지
         with zipfile.ZipFile(
             output_path,
             "w"
@@ -1406,7 +1383,6 @@ def create_hwpx_from_template(
                     data[name]
                 )
 
-    # 최종 검증
     with zipfile.ZipFile(
         output_path,
         "r"
@@ -1449,7 +1425,7 @@ def create_hwpx(
     phone,
     office
 ):
-    return create_hwpx_from_template(
+    return create_notice_hwpx(
         template_path,
         output_path,
         title,
@@ -1648,7 +1624,7 @@ def show_notice_generator():
 
                 # GitHub에서 원본 양식 다운로드
                 template_file = download_hwpx_template(
-                    HWPX_TEMPLATE_URL
+                    HWPX_TEMPLATE_URLS
                 )
 
                 output_file = os.path.join(
