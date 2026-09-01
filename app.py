@@ -666,33 +666,56 @@ def search_documents(
 # GitHub 규정집/양식 설정
 # Streamlit Cloud → Settings → Secrets에서 설정 권장
 #
-# GITHUB_USERNAME = "본인 GitHub 사용자명"
-# GITHUB_REPOSITORY = "저장소명"
-# GITHUB_BRANCH = "main"
-# GITHUB_TOKEN = "개인 저장소라면 선택사항"
-# ---------------------------------------------------------
+# 
+GITHUB_USERNAME = str(
+    st.secrets.get("GITHUB_USERNAME", "")
+).strip()
 
-GITHUB_USERNAME = st.secrets.get(
-    "Fin1041",
-    ""
-)
+GITHUB_REPOSITORY = str(
+    st.secrets.get("GITHUB_REPOSITORY", "")
+).strip()
 
-GITHUB_REPOSITORY = st.secrets.get(
-    "AI",
-    ""
-)
+GITHUB_BRANCH = str(
+    st.secrets.get("GITHUB_BRANCH", "main")
+).strip() or "main"
 
-GITHUB_BRANCH = st.secrets.get(
-    "GITHUB_BRANCH",
-    "main"
-)
-
-GITHUB_TOKEN = st.secrets.get(
-    "GITHUB_TOKEN",
-    ""
-)
+GITHUB_TOKEN = str(
+    st.secrets.get("GITHUB_TOKEN", "")
+).strip()
 
 PLAN_PDF_PATH = "templates/plan.pdf"
+HWPX_TEMPLATE_PATH = "templates/notice_template.hwpx"
+
+
+def _github_raw_url(path):
+    if not GITHUB_USERNAME:
+        raise RuntimeError(
+            "GITHUB_USERNAME이 설정되지 않았습니다.\n\n"
+            "Streamlit Cloud → Manage app → Settings → Secrets에서\n"
+            'GITHUB_USERNAME = "본인 GitHub 사용자명"\n'
+            "을 추가해주세요."
+        )
+
+    if not GITHUB_REPOSITORY:
+        raise RuntimeError(
+            "GITHUB_REPOSITORY가 설정되지 않았습니다.\n\n"
+            "Streamlit Cloud → Manage app → Settings → Secrets에서\n"
+            'GITHUB_REPOSITORY = "저장소명"\n'
+            "을 추가해주세요."
+        )
+
+    return (
+        "https://raw.githubusercontent.com/"
+        f"{GITHUB_USERNAME}/"
+        f"{GITHUB_REPOSITORY}/"
+        f"{GITHUB_BRANCH}/"
+        f"{path}"
+    )
+
+
+HWPX_TEMPLATE_URLS = [
+    _github_raw_url(HWPX_TEMPLATE_PATH)
+]
 
 
 def _github_headers():
@@ -931,25 +954,18 @@ HWPX_TEMPLATE_URLS = [
 
 
 
-def download_hwpx_template(urls):
-    """
-    GitHub에서 HWPX 원본 양식을 다운로드한다.
-    새 템플릿(번호형 안내내용)을 먼저 시도하고
-    실패하면 기존 notice_template.hwpx를 시도한다.
-    """
 
+def download_hwpx_template(urls):
     if isinstance(urls, str):
         urls = [urls]
 
     errors = []
 
     for url in urls:
-
         try:
-
             request = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Mozilla/5.0"}
+                headers=_github_headers()
             )
 
             with urllib.request.urlopen(
@@ -959,18 +975,19 @@ def download_hwpx_template(urls):
                 data = response.read()
 
             if not data:
-                raise RuntimeError("빈 파일입니다.")
+                raise RuntimeError(
+                    "GitHub에서 빈 파일을 받았습니다."
+                )
 
             with zipfile.ZipFile(
                 __import__("io").BytesIO(data),
                 "r"
             ) as z:
-
                 names = z.namelist()
 
                 if not names or names[0] != "mimetype":
                     raise RuntimeError(
-                        "정상적인 HWPX ZIP이 아닙니다."
+                        "GitHub의 파일이 정상적인 HWPX가 아닙니다."
                     )
 
                 if z.read("mimetype") != b"application/hwp+zip":
@@ -980,52 +997,47 @@ def download_hwpx_template(urls):
 
                 if "Contents/section0.xml" not in names:
                     raise RuntimeError(
-                        "section0.xml이 없습니다."
+                        "HWPX에 Contents/section0.xml이 없습니다."
                     )
 
                 section = z.read(
                     "Contents/section0.xml"
                 ).decode("utf-8")
 
-                # 새 양식 우선 확인
-                has_new = all(
-                    f"{{{{안내내용{i}}}}}" in section
-                    for i in range(1, 6)
-                )
-
-                # 구 양식도 허용
-                has_old = "{{안내내용}}" in section
-
-                if not (has_new or has_old):
+                if not (
+                    all(
+                        f"{{{{안내내용{i}}}}}" in section
+                        for i in range(1, 6)
+                    )
+                    or "{{안내내용}}" in section
+                ):
                     raise RuntimeError(
+                        "notice_template.hwpx에서 "
                         "안내내용 placeholder를 찾지 못했습니다."
                     )
 
-            f = tempfile.NamedTemporaryFile(
+            temp_file = tempfile.NamedTemporaryFile(
                 delete=False,
                 suffix=".hwpx"
             )
 
             try:
-                f.write(data)
-                f.flush()
+                temp_file.write(data)
+                temp_file.flush()
             finally:
-                f.close()
+                temp_file.close()
 
-            return f.name
+            return temp_file.name
 
         except Exception as e:
-            errors.append(
-                f"{url}: {e}"
-            )
+            errors.append(f"{url}\n{e}")
 
     raise RuntimeError(
-        "GitHub에서 정상적인 안내문 템플릿을 찾지 못했습니다.\n\n"
-        + "\n".join(errors)
-        + "\n\n"
-        "GitHub templates 폴더에 "
-        "`notice_template.hwpx`를 올려주세요."
+        "GitHub에서 notice_template.hwpx를 가져오지 못했습니다.\n\n"
+        + "\n\n".join(errors)
     )
+
+
 
 def _gemini_notice_request(prompt):
     """Gemini 일시 오류를 최대 5회 재시도."""
