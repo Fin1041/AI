@@ -763,6 +763,7 @@ def _gemini_notice_request(prompt):
 
 
 
+
 def generate_notice_text(
     request_text,
     subject,
@@ -773,16 +774,13 @@ def generate_notice_text(
     regulation_context=""
 ):
     """
-    안내문 생성 규칙:
-    - 제목 15자 이하
-    - 본문 무조건 최대 5줄
-    - 한 줄 20~25글자 정도를 목표
-    - 일시/업체/전화/관리소명은 본문 제외
-    - 관련 규정이 있으면 1줄 정도로 간단히 반영
+    제목 15자 이하 / 본문 최대 5줄.
+    본문은 20~25글자 정도를 목표로 짧게 작성한다.
+    규정 근거가 확인될 경우 1줄 정도로 간단히 반영한다.
     """
 
     prompt = f"""
-너는 공동주택 관리사무소의 안내문 작성 담당자이다.
+너는 공동주택 관리사무소의 공식 안내문 작성 담당자이다.
 
 [건명]
 {subject}
@@ -794,81 +792,62 @@ def generate_notice_text(
 {regulation_context if regulation_context else "관련 규정이 검색되지 않았습니다."}
 
 [작성 규칙]
-1. 제목은 반드시 15자 이내로 작성한다.
-2. 제목은 건명의 핵심어를 포함한다.
-3. 안내내용은 반드시 5줄 이내로 작성한다.
-4. 가능하면 정확히 4~5줄로 작성한다.
-5. 한 줄은 공백을 제외하고 20~25글자 정도를 목표로 한다.
-6. 한 줄이 너무 길어지면 문장을 짧게 다시 작성한다.
-7. 문장마다 반드시 줄바꿈한다.
-8. 내용은 "무엇을 하는지 → 왜 하는지 → 입주민 협조" 중심으로 간단히 작성한다.
-9. 관련 규정이 검색된 경우 규정명 또는 핵심 기준을 1줄 이내로 짧게 포함한다.
-10. 규정이 없으면 법조문을 절대로 만들어내지 않는다.
-11. 일시, 날짜, 업체명, 전화번호, 관리소명은 안내내용에 절대 넣지 않는다.
-12. 어려운 법률용어와 장황한 설명은 줄인다.
-13. 같은 내용의 반복을 금지한다.
-14. 입주민이 한눈에 읽을 수 있는 쉬운 문장으로 작성한다.
-15. 본문에서 괄호, 불릿, 번호는 사용하지 않는다.
+1. 제목은 반드시 15자 이내다.
+2. 제목에는 건명의 핵심어를 포함한다.
+3. 안내내용은 반드시 5줄 이내다.
+4. 가능하면 4~5줄로 작성한다.
+5. 한 줄은 공백 제외 약 20~25글자를 목표로 한다.
+6. 각 문장은 반드시 한 줄씩 작성한다.
+7. 내용은 건명에 대한 목적, 관리 필요성, 입주민 협조사항 중심으로 간단히 작성한다.
+8. 관련 규정집에서 실제 규정이나 기준이 확인되면 그 명칭 또는 핵심 내용을 짧게 1줄 포함한다.
+9. 검색 결과에 없는 법조문, 의무사항, 과태료, 처벌을 절대 만들어내지 않는다.
+10. 일시, 날짜, 업체명, 전화번호, 관리소명은 안내내용에 넣지 않는다.
+11. 같은 내용을 반복하지 않는다.
+12. 어려운 법률 표현을 줄이고 입주민이 바로 이해할 수 있게 작성한다.
+13. 본문은 5줄을 넘기지 않는다.
 
 [출력 형식]
 [제목]
 15자 이내 제목
 
 [본문]
-20~25글자 정도의 문장 1
-20~25글자 정도의 문장 2
-20~25글자 정도의 문장 3
-20~25글자 정도의 문장 4
-20~25글자 정도의 문장 5
+문장1
+문장2
+문장3
+문장4
+문장5
 
 [근거]
-규정이 확인된 경우 짧게 1줄로 작성
+확인된 규정/기준이 있으면 짧게 1줄
 """
 
     text = None
     last_error = None
 
     for attempt in range(5):
-
         try:
-
             response = client.models.generate_content(
                 model="gemini-3.1-flash-lite",
                 contents=prompt
             )
-
-            text = (
-                response.text
-                or ""
-            ).strip()
-
+            text = (response.text or "").strip()
             if text:
                 break
-
             last_error = "Gemini 빈 응답"
-
         except Exception as e:
-
             last_error = e
             upper = str(e).upper()
-
-            temporary = (
+            if not (
                 "503" in upper
                 or "UNAVAILABLE" in upper
                 or "429" in upper
                 or "RESOURCE_EXHAUSTED" in upper
-            )
-
-            if not temporary:
+            ):
                 raise
-
             if attempt < 4:
-                time.sleep(
-                    2 ** attempt
-                )
+                time.sleep(2 ** attempt)
 
     if not text:
-
         raise RuntimeError(
             "Gemini 서버가 현재 응답하지 않습니다. "
             f"마지막 오류: {last_error}"
@@ -879,47 +858,20 @@ def generate_notice_text(
     basis = ""
 
     if "[제목]" in text:
-
-        rest = text.split(
-            "[제목]",
-            1
-        )[1]
-
+        rest = text.split("[제목]", 1)[1]
         if "[본문]" in rest:
-
-            title, rest = rest.split(
-                "[본문]",
-                1
-            )
-
+            title, rest = rest.split("[본문]", 1)
             if "[근거]" in rest:
-
-                body, basis = rest.split(
-                    "[근거]",
-                    1
-                )
-
+                body, basis = rest.split("[근거]", 1)
             else:
-
                 body = rest
-
         else:
-
             title = rest
 
-    title = re.sub(
-        r"\s+",
-        " ",
-        title.strip()
-    )[:15]
-
+    title = re.sub(r"\s+", " ", title.strip())[:15]
     if not title:
-        title = (
-            subject.strip()
-            or "안내문"
-        )[:15]
+        title = (subject.strip() or "안내문")[:15]
 
-    # 본문 정리
     body = re.sub(
         r"^\s*(?:[-•·]|\d+[\.\)])\s*",
         "",
@@ -933,83 +885,33 @@ def generate_notice_text(
         if line.strip()
     ]
 
-    # 한 줄로 반환된 경우 문장 단위로 분리
     if len(lines) == 1:
-
         one = lines[0]
-
         one = re.sub(
             r"(?<=[다요함됨임])\.\s+",
             ".\n",
             one
         )
-
         lines = [
             x.strip()
             for x in one.splitlines()
             if x.strip()
         ]
 
-    # 본문에 들어가면 안 되는 값 제거
     forbidden = [
-        str(value).strip()
-        for value in [
-            date_value,
-            company,
-            phone,
-            office
-        ]
-        if str(value).strip()
+        str(v).strip()
+        for v in [date_value, company, phone, office]
+        if str(v).strip()
     ]
 
-    cleaned = []
+    cleaned = [
+        line
+        for line in lines
+        if not any(f in line for f in forbidden)
+    ]
 
-    for line in lines:
-
-        if any(
-            value in line
-            for value in forbidden
-        ):
-            continue
-
-        cleaned.append(line)
-
-    # 최대 5줄
-    cleaned = cleaned[:5]
-
-    # 한 줄이 지나치게 긴 경우 간단한 접속어를 기준으로 분리
-    final_lines = []
-
-    for line in cleaned:
-
-        if len(line.replace(" ", "")) <= 28:
-
-            final_lines.append(line)
-
-        else:
-
-            parts = re.split(
-                r"(?:,\s*|,\s*그리고\s*|하며\s+|하여\s+|및\s+)",
-                line
-            )
-
-            parts = [
-                p.strip()
-                for p in parts
-                if p.strip()
-            ]
-
-            for part in parts:
-
-                if len(part.replace(" ", "")) <= 30:
-                    final_lines.append(part)
-
-    # 다시 최대 5줄
-    final_lines = final_lines[:5]
-
-    body = "\n".join(
-        final_lines
-    )
+    # 본문은 무조건 5줄 이내
+    body = "\n".join(cleaned[:5])
 
     return title, body, basis
 
@@ -1187,6 +1089,7 @@ def generate_notice_content(
     return title, body, basis
 
 
+
 def create_hwpx_from_template(
     template_path,
     output_path,
@@ -1201,23 +1104,23 @@ def create_hwpx_from_template(
     office
 ):
     """
-    실제 HWPX 템플릿의 기존 구조를 최대한 유지한다.
+    HWPX 원본 구조 보존 방식.
 
-    지원:
-    1. {{안내내용1}} ~ {{안내내용7}} 템플릿
-    2. 기존 {{안내내용}} 1개 + 뒤의 빈 문단들 템플릿
+    지원 템플릿:
+      A) {{안내내용1}} ~ {{안내내용7}}
+      B) {{안내내용}} + 그 아래 기존 빈 문단 최대 7개
 
-    새 namespace/표/파일을 만들지 않는다.
+    새 문단/namespace를 만들지 않고 기존 문단의 text만 교체한다.
     """
 
     body_lines = [
         line.strip()
         for line in str(body).splitlines()
         if line.strip()
-    ][:7]
+    ][:5]
 
     if not body_lines:
-        body_lines = [""]
+        raise RuntimeError("AI가 생성한 안내내용이 없습니다.")
 
     replacements = {
         "{{공고일자}}": notice_date,
@@ -1233,23 +1136,20 @@ def create_hwpx_from_template(
         "{{관리소명}}": office,
     }
 
-    with zipfile.ZipFile(
-        template_path,
-        "r"
-    ) as zin:
+    with zipfile.ZipFile(template_path, "r") as zin:
 
         names = zin.namelist()
 
         if not names or names[0] != "mimetype":
             raise RuntimeError(
-                "HWPX 원본의 mimetype 구조가 올바르지 않습니다."
+                "원본 HWPX의 mimetype 구조가 올바르지 않습니다."
             )
 
         section = "Contents/section0.xml"
 
         if section not in names:
             raise RuntimeError(
-                "Contents/section0.xml을 찾을 수 없습니다."
+                "Contents/section0.xml이 없습니다."
             )
 
         data = {
@@ -1257,16 +1157,14 @@ def create_hwpx_from_template(
             for name in names
         }
 
-        # 모든 XML에서 일반 placeholder 치환
+        # 일반 placeholder 치환
         for name in names:
 
             if not name.lower().endswith(".xml"):
                 continue
 
             try:
-                xml_text = data[name].decode(
-                    "utf-8"
-                )
+                xml_text = data[name].decode("utf-8")
             except UnicodeDecodeError:
                 continue
 
@@ -1280,58 +1178,47 @@ def create_hwpx_from_template(
                     )
                 )
 
-            data[name] = xml_text.encode(
-                "utf-8"
-            )
+            data[name] = xml_text.encode("utf-8")
 
-        xml = data[section].decode(
-            "utf-8"
-        )
+        xml = data[section].decode("utf-8")
 
-        # --------------------------------------------------
-        # 1) 7개 placeholder 방식
-        # --------------------------------------------------
-        numbered = [
+        # ------------------------------------------------------
+        # A) {{안내내용1}} ~ {{안내내용7}} 방식
+        # ------------------------------------------------------
+        numbered_keys = [
             f"{{{{안내내용{i}}}}}"
             for i in range(1, 8)
         ]
 
-        numbered_found = all(
+        if all(
             key in xml
-            for key in numbered
-        )
+            for key in numbered_keys
+        ):
 
-        if numbered_found:
+            for i, key in enumerate(
+                numbered_keys
+            ):
 
-            for i, key in enumerate(numbered):
-                value = (
-                    body_lines[i]
-                    if i < len(body_lines)
-                    else ""
-                )
-
-                # placeholder가 들어간 기존 hp:t의 텍스트만 교체
+                # 해당 placeholder를 포함하는 단일 paragraph
                 p = re.search(
-                    rf"<hp:p\b[^>]*>"
-                    rf"(?:(?!<hp:p\b)[\s\S])*?"
-                    rf"{re.escape(key)}"
-                    rf"(?:(?!<hp:p\b)[\s\S])*?"
-                    rf"</hp:p>",
+                    r"<hp:p\b[^>]*>"
+                    r"(?:(?!<hp:p\b)[\s\S])*?"
+                    + re.escape(key)
+                    + r"(?:(?!<hp:p\b)[\s\S])*?"
+                    r"</hp:p>",
                     xml,
                     re.DOTALL
                 )
 
                 if not p:
-                    raise RuntimeError(
-                        f"{key} 위치의 기존 문단을 찾지 못했습니다."
-                    )
+                    continue
 
                 paragraph = p.group(0)
 
                 t = re.search(
-                    rf"<hp:t\b[^>]*>.*?"
-                    rf"{re.escape(key)}"
-                    rf".*?</hp:t>",
+                    r"<hp:t\b[^>]*>.*?"
+                    + re.escape(key)
+                    + r".*?</hp:t>",
                     paragraph,
                     re.DOTALL
                 )
@@ -1341,7 +1228,13 @@ def create_hwpx_from_template(
                         f"{key}의 기존 텍스트 영역을 찾지 못했습니다."
                     )
 
-                new_paragraph = (
+                value = (
+                    body_lines[i]
+                    if i < len(body_lines)
+                    else ""
+                )
+
+                paragraph = (
                     paragraph[:t.start()]
                     + "<hp:t>"
                     + html.escape(
@@ -1354,16 +1247,16 @@ def create_hwpx_from_template(
 
                 xml = (
                     xml[:p.start()]
-                    + new_paragraph
+                    + paragraph
                     + xml[p.end():]
                 )
 
-        # --------------------------------------------------
-        # 2) 기존 {{안내내용}} + 기존 빈 문단 방식
-        # --------------------------------------------------
-        else:
+        # ------------------------------------------------------
+        # B) {{안내내용}} + 기존 빈 문단 방식
+        # ------------------------------------------------------
+        elif "{{안내내용}}" in xml:
 
-            p_matches = list(
+            paragraphs = list(
                 re.finditer(
                     r"<hp:p\b[^>]*>.*?</hp:p>",
                     xml,
@@ -1374,31 +1267,31 @@ def create_hwpx_from_template(
             body_index = next(
                 (
                     i
-                    for i, p in enumerate(p_matches)
-                    if "{{안내내용}}" in p.group(0)
+                    for i, match in enumerate(paragraphs)
+                    if "{{안내내용}}" in match.group(0)
                 ),
                 None
             )
 
             if body_index is None:
                 raise RuntimeError(
-                    "HWPX 템플릿에서 {{안내내용}} 또는 "
-                    "{{안내내용1}}~{{안내내용7}}을 찾지 못했습니다."
+                    "HWPX에서 {{안내내용}} 위치를 찾지 못했습니다."
                 )
 
-            # 최대 7개의 기존 문단을 사용
-            targets = p_matches[
+            # 현재 사용자가 추가한 본문 문단을 최대 7개 사용
+            targets = paragraphs[
                 body_index:body_index + 7
             ]
 
-            # 본문 7줄까지 기존 문단에 입력
-            # 뒤에서부터 교체하여 offset 문제 방지
+            if len(targets) < 5:
+                raise RuntimeError(
+                    "안내내용을 넣을 기존 문단이 5개 미만입니다. "
+                    "한글 양식에 본문용 문단을 최소 5개 만들어 주세요."
+                )
+
+            # 역순으로 수정하여 XML offset 보존
             for i in range(
-                min(
-                    7,
-                    len(targets),
-                    len(body_lines)
-                ) - 1,
+                min(5, len(targets)) - 1,
                 -1,
                 -1
             ):
@@ -1406,34 +1299,40 @@ def create_hwpx_from_template(
                 match = targets[i]
                 paragraph = match.group(0)
 
-                t = re.search(
+                value = (
+                    body_lines[i]
+                    if i < len(body_lines)
+                    else ""
+                )
+
+                text_match = re.search(
                     r"<hp:t\b[^>]*>.*?</hp:t>",
                     paragraph,
                     re.DOTALL
                 )
 
-                if t:
+                if text_match:
 
                     paragraph = (
-                        paragraph[:t.start()]
+                        paragraph[:text_match.start()]
                         + "<hp:t>"
                         + html.escape(
-                            body_lines[i],
+                            value,
                             quote=False
                         )
                         + "</hp:t>"
-                        + paragraph[t.end():]
+                        + paragraph[text_match.end():]
                     )
 
                 else:
 
-                    run = re.search(
+                    run_match = re.search(
                         r"<hp:run\b([^>]*)/>",
                         paragraph,
                         re.DOTALL
                     )
 
-                    if not run:
+                    if not run_match:
                         raise RuntimeError(
                             f"본문 {i+1}번째 기존 문단에 "
                             "텍스트 입력 위치가 없습니다."
@@ -1441,20 +1340,28 @@ def create_hwpx_from_template(
 
                     run_xml = (
                         "<hp:run"
-                        + run.group(1)
+                        + run_match.group(1)
                         + "><hp:t>"
                         + html.escape(
-                            body_lines[i],
+                            value,
                             quote=False
                         )
                         + "</hp:t></hp:run>"
                     )
 
                     paragraph = (
-                        paragraph[:run.start()]
+                        paragraph[:run_match.start()]
                         + run_xml
-                        + paragraph[run.end():]
+                        + paragraph[run_match.end():]
                     )
+
+                # 기존 줄 간격을 조금 넓힘
+                paragraph = re.sub(
+                    r'<hp:lineseg([^>]*)spacing="[^"]*"',
+                    r'<hp:lineseg\1spacing="1350"',
+                    paragraph,
+                    count=1
+                )
 
                 xml = (
                     xml[:match.start()]
@@ -1462,20 +1369,24 @@ def create_hwpx_from_template(
                     + xml[match.end():]
                 )
 
+        else:
+
+            raise RuntimeError(
+                "HWPX 템플릿에서 {{안내내용}} 또는 "
+                "{{안내내용1}}~{{안내내용7}}을 찾지 못했습니다."
+            )
+
         # XML 검증
         try:
             ET.fromstring(xml)
         except ET.ParseError as e:
             raise RuntimeError(
-                "수정된 HWPX XML 검증 실패: "
-                + str(e)
+                "수정된 HWPX XML 검증 실패: " + str(e)
             )
 
-        data[section] = xml.encode(
-            "utf-8"
-        )
+        data[section] = xml.encode("utf-8")
 
-        # ZIP 구조를 유지
+        # 원본 ZIP 구조 유지
         with zipfile.ZipFile(
             output_path,
             "w"
@@ -1495,7 +1406,7 @@ def create_hwpx_from_template(
                     data[name]
                 )
 
-    # 최종 무결성 검사
+    # 최종 검증
     with zipfile.ZipFile(
         output_path,
         "r"
@@ -1519,11 +1430,8 @@ def create_hwpx_from_template(
         for name in check.namelist():
 
             if name.lower().endswith(".xml"):
-
                 ET.fromstring(
-                    check.read(name).decode(
-                        "utf-8"
-                    )
+                    check.read(name).decode("utf-8")
                 )
 
     return output_path
