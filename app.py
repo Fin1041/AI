@@ -15,6 +15,7 @@ import re
 import copy
 import xml.etree.ElementTree as ET
 import html
+import urllib.request
 
 
 # =========================================================
@@ -668,6 +669,72 @@ HWPX_TEMPLATE_URL = (
     "AI/"
     "main/templates/notice_template.hwpx"
 )
+
+
+
+def download_hwpx_template(url):
+    """
+    GitHub raw URL에서 원본 HWPX를 다운로드한다.
+    파일 자체가 HWPX ZIP인지 먼저 확인한다.
+    """
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0"}
+    )
+
+    try:
+        with urllib.request.urlopen(
+            request,
+            timeout=30
+        ) as response:
+            data = response.read()
+    except Exception as e:
+        raise RuntimeError(
+            "GitHub HWPX 다운로드 실패: " + str(e)
+        )
+
+    if not data:
+        raise RuntimeError(
+            "GitHub에서 빈 파일을 받았습니다."
+        )
+
+    # HWPX는 ZIP 기반
+    try:
+        with zipfile.ZipFile(
+            __import__("io").BytesIO(data),
+            "r"
+        ) as z:
+            names = z.namelist()
+
+            if not names:
+                raise RuntimeError(
+                    "다운로드된 HWPX ZIP이 비어 있습니다."
+                )
+
+            if names[0] != "mimetype":
+                raise RuntimeError(
+                    "다운로드된 파일이 정상적인 HWPX가 아닙니다."
+                )
+
+    except zipfile.BadZipFile as e:
+        raise RuntimeError(
+            "GitHub에서 HWPX가 아닌 파일을 받았습니다. "
+            "templates/notice_template.hwpx 경로를 확인해주세요."
+        ) from e
+
+    temp_file = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".hwpx"
+    )
+
+    try:
+        temp_file.write(data)
+        temp_file.flush()
+    finally:
+        temp_file.close()
+
+    return temp_file.name
+
 
 
 def _gemini_notice_request(prompt):
