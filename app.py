@@ -15,6 +15,7 @@ import shutil
 from pathlib import Path
 from html import escape
 from urllib.request import urlopen, Request
+from urllib.parse import quote
 
 
 # =========================================================
@@ -297,10 +298,10 @@ except Exception as e:
 # =========================================================
 # HWPX 양식 설정
 # =========================================================
-# GitHub templates 폴더에 HWPX를 영문 파일명으로 올려주세요.
-# 예: templates/notice_template.hwpx
+# GitHub templates 폴더:
+# templates/notice_template.hwpx
 #
-# 아래 3곳만 수정하면 됩니다.
+# 아래 3곳만 본인 GitHub 정보로 수정하세요.
 # =========================================================
 
 GITHUB_USERNAME = "Fin1041"
@@ -315,7 +316,6 @@ HWPX_TEMPLATE_URL = (
     f"{GITHUB_BRANCH}/"
     f"templates/{HWPX_FILENAME}"
 )
-
 
 # =========================================================
 # 7. 임베딩 모델
@@ -646,53 +646,55 @@ def create_hwpx(
 # =========================================================
 
 def generate_notice_content(
+    request_text,
     subject,
     date,
     company,
     phone,
     office
 ):
+    """
+    사용자의 요청을 바탕으로 안내문 제목과 본문을 생성한다.
+    단, 확인되지 않은 법 조항/의무사항은 만들어내지 않도록 한다.
+    """
 
     prompt = f"""
-너는 공동주택 관리사무소의 안내문 작성 담당자이다.
+너는 공동주택 관리사무소의 안내문 작성 담당 AI이다.
 
-사용자가 입력한 정보를 이용하여
-입주민에게 전달할 안내문 본문을 작성한다.
+사용자가 입력한 요청을 바탕으로 입주민에게 배포할
+공식 안내문을 작성한다.
 
-[입력 정보]
+[기본 정보]
+건명: {subject}
+일시: {date}
+업체: {company}
+전화번호: {phone}
+관리소명: {office}
 
-건명:
-{subject}
+[사용자 요청]
+{request_text}
 
-일시:
-{date}
+[작성 규칙]
+1. 제목을 1개 작성한다.
+2. 안내문 본문은 반드시 5줄 이내로 작성한다.
+3. 본문은 입주민이 이해하기 쉬운 정중한 행정문체로 작성한다.
+4. 사용자의 요청과 관련된 법령·고시·공식 기준을 고려한다.
+5. 확인되지 않은 법 조항, 법적 의무, 과태료, 처벌 등을 절대로 만들어내지 않는다.
+6. 법적 근거가 명확하지 않은 경우 "관련 유지관리 기준에 따라" 등
+   확인 가능한 범위의 표현을 사용하고 특정 조문을 임의로 적지 않는다.
+7. 본문에는 제목, 건명, 일시, 업체, 전화번호, 관리소명을 반복하지 않는다.
+8. 불필요한 인사말이나 장황한 설명은 생략한다.
+9. 결과는 아래 형식만 사용한다.
 
-업체:
-{company}
+[제목]
+제목 한 줄
 
-전화번호:
-{phone}
+[본문]
+5줄 이내의 안내문
 
-관리소명:
-{office}
-
-[작성 원칙]
-
-1. 정중하고 공공기관 안내문에 적합한 문체를 사용한다.
-2. 입주민이 쉽게 이해할 수 있도록 작성한다.
-3. 입력된 정보에 없는 새로운 사실은 임의로 만들지 않는다.
-4. 건명과 일시를 중심으로 자연스럽게 안내한다.
-5. 기존 양식에 이미 들어 있는 법령 문구와 주의사항은
-   별도로 반복하지 않는다.
-6. 전화번호와 관리소명은 별도 양식에 들어가므로
-   본문에서 반복하지 않는다.
-7. 제목을 작성하지 않는다.
-8. 번호 매기기나 별도 머리말 없이 본문만 작성한다.
-9. 마지막에는 입주민의 양해와 협조를 부탁하는
-   자연스러운 문장을 넣는다.
-10. 한국어로 작성한다.
-
-[안내문 본문]
+[근거]
+확인된 법령 또는 공식 기준이 있으면 1~2개만 간단히 적는다.
+확실한 근거가 없으면 "확인된 특정 법령상 의무사항 없음"이라고 적는다.
 """
 
     response = client.models.generate_content(
@@ -700,7 +702,43 @@ def generate_notice_content(
         contents=prompt
     )
 
-    return response.text.strip()
+    text = response.text.strip()
+
+    title = ""
+    body = ""
+    basis = ""
+
+    if "[제목]" in text:
+        after_title = text.split("[제목]", 1)[1]
+        if "[본문]" in after_title:
+            title, after_body = after_title.split("[본문]", 1)
+            if "[근거]" in after_body:
+                body, basis = after_body.split("[근거]", 1)
+            else:
+                body = after_body
+        else:
+            title = after_title
+
+    title = title.strip()
+    body = body.strip()
+    basis = basis.strip()
+
+    # 모델이 형식을 지키지 않았을 때의 안전한 fallback
+    if not title:
+        title = f"{subject} 안내"
+
+    if not body:
+        body = text
+
+    # 본문 5줄 제한
+    lines = [
+        line.strip()
+        for line in body.splitlines()
+        if line.strip()
+    ]
+    body = "\n".join(lines[:5])
+
+    return title, body, basis
 
 
 # =========================================================
@@ -716,7 +754,7 @@ if st.session_state.show_notice_generator:
 
     st.markdown(
         '<div class="ai-greeting" style="font-size:21px;">'
-        '안내문 생성'
+        'AI 안내문 생성'
         '</div>',
         unsafe_allow_html=True
     )
@@ -726,12 +764,13 @@ if st.session_state.show_notice_generator:
         <div class="welcome-card">
 
         <div class="welcome-title">
-        ✨ 안내문 정보를 입력해주세요
+        ✨ 안내문 내용을 AI가 작성합니다
         </div>
 
         <div class="welcome-text">
-        건명, 일시, 업체, 전화번호, 관리소명을 입력하면
-        AI가 안내문 본문을 작성하고 기존 한글 양식에 넣어드립니다.
+        안내문 요청내용을 입력하면 AI가 관련 법령과 공식 기준을
+        확인할 수 있는 범위에서 검토하여 5줄 이내의 문구를 작성합니다.
+        확인되지 않은 법적 의무는 임의로 작성하지 않습니다.
         </div>
 
         </div>
@@ -739,63 +778,74 @@ if st.session_state.show_notice_generator:
         unsafe_allow_html=True
     )
 
+    notice_date = st.text_input(
+        "① 공고일자",
+        placeholder="예: 2026년 9월 1일"
+    )
+
+    notice_deadline = st.text_input(
+        "② 공고기한",
+        placeholder="예: 2026년 9월 10일까지"
+    )
 
     subject = st.text_input(
-        "① 건명",
-        placeholder="예: 세대 소독 실시"
+        "③ 건명",
+        placeholder="예: 보일러 세관"
     )
-
 
     date = st.text_input(
-        "② 일시",
-        placeholder="예: 2026년 9월 3일 09:00~17:00"
+        "④ 일시",
+        placeholder="예: 2026년 9월 10일 09:00~17:00"
     )
-
 
     company = st.text_input(
-        "③ 업체",
-        placeholder="예: ○○방역"
+        "⑤ 업체",
+        placeholder="예: ○○설비"
     )
 
-
     phone = st.text_input(
-        "④ 전화번호",
+        "⑥ 전화번호",
         placeholder="예: 053-123-4567"
     )
 
-
     office = st.text_input(
-        "⑤ 관리소명",
+        "⑦ 관리소명",
         placeholder="예: ○○관리소"
     )
 
+    request_text = st.text_area(
+        "⑧ 안내문 내용 요청",
+        placeholder=(
+            "예: 보일러 세관에 대해서 관련 법규나 근거를 "
+            "바탕으로 입주민 안내문을 5줄 이내로 만들어줘"
+        ),
+        height=120
+    )
 
     st.markdown("---")
 
-
     if st.button(
-        "✨ 안내문 생성",
+        "✨ AI 안내문 생성",
         key="create_notice",
         use_container_width=True
     ):
 
         missing = []
 
+        if not notice_date.strip():
+            missing.append("공고일자")
         if not subject.strip():
             missing.append("건명")
-
         if not date.strip():
             missing.append("일시")
-
         if not company.strip():
             missing.append("업체")
-
         if not phone.strip():
             missing.append("전화번호")
-
         if not office.strip():
             missing.append("관리소명")
-
+        if not request_text.strip():
+            missing.append("안내문 내용 요청")
 
         if missing:
 
@@ -808,129 +858,207 @@ if st.session_state.show_notice_generator:
 
             try:
 
-                # -------------------------------------
-                # Gemini 안내문 생성
-                # -------------------------------------
-
                 with st.spinner(
-                    "🤖 AI가 안내문 문구를 작성하고 있습니다..."
+                    "🤖 관련 기준을 검토하고 안내문을 작성하고 있습니다..."
                 ):
 
-                    notice_content = generate_notice_content(
-                        subject=subject,
-                        date=date,
-                        company=company,
-                        phone=phone,
-                        office=office
-                    )
-
-
-                # -------------------------------------
-                # GitHub HWPX 양식 가져오기
-                # -------------------------------------
-
-                with st.spinner(
-                    "📄 한글 양식을 불러오고 있습니다..."
-                ):
-
-                    template_path = (
-                        download_hwpx_template(
-                            HWPX_TEMPLATE_URL
+                    title, notice_content, basis = (
+                        generate_notice_content(
+                            request_text=request_text,
+                            subject=subject,
+                            date=date,
+                            company=company,
+                            phone=phone,
+                            office=office
                         )
                     )
 
+                st.success("✅ AI 안내문 작성이 완료되었습니다.")
 
-                # -------------------------------------
-                # 완성 파일 생성
-                # -------------------------------------
-
-                output_path = os.path.join(
-                    tempfile.gettempdir(),
-                    "안내문_완성본.hwpx"
+                st.markdown(
+                    '<div class="section-title">📝 생성 결과</div>',
+                    unsafe_allow_html=True
                 )
 
+                st.markdown(
+                    f"""
+                    <div class="welcome-card">
+                    <div class="welcome-title">
+                    제목
+                    </div>
+                    <div style="font-size:17px;font-weight:800;
+                    color:#243c56;margin-bottom:15px;">
+                    {escape(title)}
+                    </div>
 
-                replaced_count = create_hwpx(
-                    template_path=template_path,
-                    output_path=output_path,
-                    subject=subject,
-                    date=date,
-                    company=company,
-                    phone=phone,
-                    office=office,
-                    notice_content=notice_content
+                    <div class="welcome-title">
+                    안내내용
+                    </div>
+                    <div style="font-size:14px;line-height:1.8;
+                    color:#334b64;">
+                    {escape(notice_content).replace(chr(10), '<br>')}
+                    </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
                 )
 
-
-                # -------------------------------------
-                # 결과 확인
-                # -------------------------------------
-
-                if replaced_count == 0:
-
-                    st.error(
-                        "HWPX 양식에서 치환할 입력 항목을 찾지 못했습니다.\n\n"
-                        "GitHub의 HWPX 양식이 현재 코드에서 지정한 "
-                        "{{건 명}}, {{일 시}}, {{업 체}}, "
-                        "{{전화번호}}, {{관리소명}} 형식인지 확인해주세요."
+                if basis:
+                    st.info(
+                        "📚 AI가 참고한 근거\n\n"
+                        + basis
                     )
 
-                else:
+                with st.spinner(
+                    "📄 한글파일 양식에 내용을 넣고 있습니다..."
+                ):
 
-                    st.success(
-                        "✅ 안내문이 완성되었습니다."
+                    template_path = download_hwpx_template(
+                        HWPX_TEMPLATE_URL
                     )
 
-
-                    st.markdown(
-                        '<div class="section-title">'
-                        '📝 AI가 작성한 안내문'
-                        '</div>',
-                        unsafe_allow_html=True
+                    output_path = os.path.join(
+                        tempfile.gettempdir(),
+                        "안내문_완성본.hwpx"
                     )
 
+                    replacements = {
+                        "{{공고일자}}": notice_date,
+                        "{{공고기한}}": notice_deadline,
+                        "{{제목}}": title,
+                        "{{안내내용}}": notice_content,
+                        "{{건 명}}": subject,
+                        "{{건명}}": subject,
+                        "{{일 시}}": date,
+                        "{{일시}}": date,
+                        "{{업 체}}": company,
+                        "{{업체}}": company,
+                        "{{전화번호}}": phone,
+                        "{{관리소명}}": office,
+                    }
 
-                    st.markdown(
-                        f"""
-                        <div class="welcome-card">
-                        {escape(notice_content).replace(chr(10), '<br>')}
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                    # 실제 업로드 양식을 다시 만들어 저장
+                    with tempfile.TemporaryDirectory() as temp_dir:
 
+                        with zipfile.ZipFile(
+                            template_path,
+                            "r"
+                        ) as zip_ref:
+                            zip_ref.extractall(temp_dir)
 
-                    # ---------------------------------
-                    # 다운로드
-                    # ---------------------------------
+                        replaced_count = 0
 
-                    with open(
-                        output_path,
-                        "rb"
-                    ) as f:
+                        for root, dirs, files in os.walk(temp_dir):
 
-                        hwpx_data = f.read()
+                            for filename in files:
 
+                                if not filename.lower().endswith(".xml"):
+                                    continue
 
-                    st.download_button(
-                        label="📥 완성된 안내문 한글파일 다운로드",
-                        data=hwpx_data,
-                        file_name=f"{subject}_안내문.hwpx",
-                        mime="application/octet-stream",
-                        use_container_width=True
-                    )
+                                file_path = os.path.join(
+                                    root,
+                                    filename
+                                )
 
+                                try:
+                                    with open(
+                                        file_path,
+                                        "r",
+                                        encoding="utf-8"
+                                    ) as f:
+                                        xml_text = f.read()
+                                except Exception:
+                                    continue
+
+                                original_text = xml_text
+
+                                for key, value in replacements.items():
+
+                                    safe_value = escape(
+                                        str(value),
+                                        quote=False
+                                    )
+
+                                    count = xml_text.count(key)
+
+                                    if count:
+                                        xml_text = xml_text.replace(
+                                            key,
+                                            safe_value
+                                        )
+                                        replaced_count += count
+
+                                if xml_text != original_text:
+
+                                    with open(
+                                        file_path,
+                                        "w",
+                                        encoding="utf-8"
+                                    ) as f:
+                                        f.write(xml_text)
+
+                        if replaced_count == 0:
+                            raise RuntimeError(
+                                "HWPX 양식에서 {{}} 치환 위치를 "
+                                "찾지 못했습니다."
+                            )
+
+                        with zipfile.ZipFile(
+                            output_path,
+                            "w",
+                            zipfile.ZIP_DEFLATED
+                        ) as zip_ref:
+
+                            for root, dirs, files in os.walk(temp_dir):
+
+                                for filename in files:
+
+                                    file_path = os.path.join(
+                                        root,
+                                        filename
+                                    )
+
+                                    arcname = os.path.relpath(
+                                        file_path,
+                                        temp_dir
+                                    )
+
+                                    zip_ref.write(
+                                        file_path,
+                                        arcname
+                                    )
+
+                with open(
+                    output_path,
+                    "rb"
+                ) as f:
+                    hwpx_data = f.read()
+
+                st.download_button(
+                    label="📥 완성된 안내문 한글파일 다운로드",
+                    data=hwpx_data,
+                    file_name=f"{subject}_안내문.hwpx",
+                    mime="application/octet-stream",
+                    use_container_width=True
+                )
 
             except Exception as e:
 
                 st.error(
-                    "❌ 안내문 생성 중 오류가 발생했습니다.\n\n"
-                    + str(e)
+                    "❌ 안내문 생성 중 오류가 발생했습니다."
                 )
 
+                st.code(
+                    str(e),
+                    language="text"
+                )
+
+                st.info(
+                    "GitHub의 templates/notice_template.hwpx 파일과 "
+                    "GitHub 사용자명·저장소명을 확인해주세요."
+                )
 
     st.markdown("")
-
 
     if st.button(
         "↩️ 처음 화면으로 돌아가기",
@@ -940,7 +1068,6 @@ if st.session_state.show_notice_generator:
 
         st.session_state.show_notice_generator = False
         st.rerun()
-
 
     st.stop()
 
