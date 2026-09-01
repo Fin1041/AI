@@ -666,8 +666,8 @@ def search_documents(
 HWPX_TEMPLATE_URLS = [
     (
         f"https://raw.githubusercontent.com/"
-        f"{Fin1041}/{AI}/"
-        f"{main}/templates/notice_template.hwpx"
+        f"Fin1041/AI/"
+        f"main/templates/notice_template.hwpx"
     ),
  
 ]
