@@ -294,11 +294,26 @@ except Exception as e:
 # 아래처럼 raw.githubusercontent.com 주소를 사용합니다.
 # =========================================================
 
+# =========================================================
+# HWPX 양식 설정
+# =========================================================
+# GitHub templates 폴더에 HWPX를 영문 파일명으로 올려주세요.
+# 예: templates/notice_template.hwpx
+#
+# 아래 3곳만 수정하면 됩니다.
+# =========================================================
+
+GITHUB_USERNAME = "YOUR_GITHUB_USERNAME"
+GITHUB_REPOSITORY = "YOUR_REPOSITORY"
+GITHUB_BRANCH = "main"
+HWPX_FILENAME = "notice_template.hwpx"
+
 HWPX_TEMPLATE_URL = (
-    "https://raw.githubusercontent.com/"
-    "YOUR_GITHUB_USERNAME/"
-    "YOUR_REPOSITORY/"
-    "main/templates/붙임.소독%20안내문.hwpx"
+    f"https://raw.githubusercontent.com/"
+    f"{GITHUB_USERNAME}/"
+    f"{GITHUB_REPOSITORY}/"
+    f"{GITHUB_BRANCH}/"
+    f"templates/{HWPX_FILENAME}"
 )
 
 
@@ -484,13 +499,21 @@ def download_hwpx_template(url):
     with urlopen(request, timeout=30) as response:
         data = response.read()
 
+    if not data:
+        raise RuntimeError(
+            "GitHub에서 HWPX 파일을 받지 못했습니다."
+        )
+
     temp_file = tempfile.NamedTemporaryFile(
         delete=False,
         suffix=".hwpx"
     )
 
-    temp_file.write(data)
-    temp_file.close()
+    try:
+        temp_file.write(data)
+        temp_file.flush()
+    finally:
+        temp_file.close()
 
     return temp_file.name
 
@@ -510,24 +533,17 @@ def create_hwpx(
     notice_content
 ):
 
+    # 사용자가 제공한 실제 HWPX 양식의 입력 위치
     replacements = {
         "{{건 명}}": subject,
         "{{건명}}": subject,
-
         "{{일 시}}": date,
         "{{일시}}": date,
-
         "{{업 체}}": company,
         "{{업체}}": company,
-
         "{{전화번호}}": phone,
-        "{{ 전화번호 }}": phone,
-
         "{{관리소명}}": office,
-        "{{ 관리소명 }}": office,
-
         "{{안내내용}}": notice_content,
-        "{{ 안내내용 }}": notice_content,
     }
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -536,13 +552,10 @@ def create_hwpx(
             template_path,
             "r"
         ) as zip_ref:
-
             zip_ref.extractall(temp_dir)
-
 
         replaced_count = 0
 
-        # HWPX 내부 XML을 모두 검사
         for root, dirs, files in os.walk(temp_dir):
 
             for filename in files:
@@ -556,60 +569,54 @@ def create_hwpx(
                 )
 
                 try:
-
                     with open(
                         file_path,
                         "r",
                         encoding="utf-8"
                     ) as f:
-
                         xml_text = f.read()
-
-                except Exception:
+                except (UnicodeDecodeError, OSError):
                     continue
-
 
                 original_text = xml_text
 
-
                 for key, value in replacements.items():
 
-                    value = str(value)
-
-                    # HWPX XML 안에서 사용할 수 있도록
-                    # 기본 XML 특수문자를 처리
+                    # XML 특수문자 안전 처리
                     safe_value = escape(
-                        value,
+                        str(value),
                         quote=False
                     )
 
-                    before = xml_text
+                    count = xml_text.count(key)
 
-                    xml_text = xml_text.replace(
-                        key,
-                        safe_value
-                    )
-
-                    if xml_text != before:
-                        replaced_count += 1
-
+                    if count:
+                        xml_text = xml_text.replace(
+                            key,
+                            safe_value
+                        )
+                        replaced_count += count
 
                 if xml_text != original_text:
-
                     with open(
                         file_path,
                         "w",
                         encoding="utf-8"
                     ) as f:
-
                         f.write(xml_text)
 
+        if replaced_count == 0:
+            raise RuntimeError(
+                "HWPX 양식에서 {{건 명}}, {{일 시}}, "
+                "{{업 체}}, {{전화번호}}, {{관리소명}} "
+                "치환 위치를 찾지 못했습니다."
+            )
 
-        # 다시 HWPX 압축
+        # HWPX는 ZIP 기반이므로 다시 압축
         with zipfile.ZipFile(
             output_path,
             "w",
-            zipfile.ZIP_DEFLATED
+            compression=zipfile.ZIP_DEFLATED
         ) as zip_ref:
 
             for root, dirs, files in os.walk(temp_dir):
