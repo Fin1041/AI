@@ -727,7 +727,7 @@ def download_hwpx_template(url):
 
     try:
         with zipfile.ZipFile(
-            BytesIO(data),
+            io.BytesIO(data),
             "r"
         ) as z:
             names = z.namelist()
@@ -783,9 +783,7 @@ def load_plan_pdf_pages():
         )
 
     try:
-        reader = PdfReader(
-            BytesIO(data)
-        )
+        reader = PdfReader(io.BytesIO(data))
     except Exception as e:
         raise RuntimeError(
             "plan.pdf를 읽지 못했습니다.\n"
