@@ -750,6 +750,148 @@ def generate_notice_content(
     return title, body, basis
 
 
+
+def replace_hwpx_notice_content_as_paragraphs(
+    temp_dir,
+    notice_content
+):
+    """
+    {{안내내용}}이 포함된 hp:p 문단을 찾아
+    AI 본문을 문장별 실제 HWPX 문단으로 교체한다.
+
+    기존 문단의 pPr와 첫 run의 rPr를 최대한 유지한다.
+    """
+
+    lines = [
+        line.strip()
+        for line in str(notice_content).splitlines()
+        if line.strip()
+    ]
+
+    if not lines:
+        return 0
+
+    for root, dirs, files in os.walk(temp_dir):
+
+        for filename in files:
+
+            if not filename.lower().endswith(".xml"):
+                continue
+
+            file_path = os.path.join(root, filename)
+
+            try:
+                xml = Path(file_path).read_text(
+                    encoding="utf-8"
+                )
+            except Exception:
+                continue
+
+            if "{{안내내용}}" not in xml:
+                continue
+
+            # placeholder를 포함하는 한 개의 hp:p를 찾는다.
+            match = re.search(
+                r"<hp:p\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:p>",
+                xml,
+                re.DOTALL
+            )
+
+            if not match:
+                continue
+
+            original_p = match.group(0)
+
+            p_start_match = re.match(
+                r"<hp:p\b[^>]*>",
+                original_p
+            )
+
+            if not p_start_match:
+                continue
+
+            p_start = p_start_match.group(0)
+
+            ppr_match = re.search(
+                r"<hp:pPr\b.*?</hp:pPr>",
+                original_p,
+                re.DOTALL
+            )
+
+            ppr = (
+                ppr_match.group(0)
+                if ppr_match
+                else ""
+            )
+
+            # 기존 run의 속성은 첫 run의 rPr를 사용
+            rpr_match = re.search(
+                r"<hp:rPr\b.*?</hp:rPr>",
+                original_p,
+                re.DOTALL
+            )
+
+            rpr = (
+                rpr_match.group(0)
+                if rpr_match
+                else ""
+            )
+
+            # 기존 hp:p의 ID 속성은 중복될 수 있으므로
+            # 그대로 복제하지 않는다.
+            paragraph_list = []
+
+            for line in lines:
+
+                safe = escape(
+                    line,
+                    quote=False
+                )
+
+                if rpr:
+                    run_xml = (
+                        "<hp:run>"
+                        + rpr
+                        + "<hp:t>"
+                        + safe
+                        + "</hp:t>"
+                        "</hp:run>"
+                    )
+                else:
+                    run_xml = (
+                        "<hp:run>"
+                        "<hp:t>"
+                        + safe
+                        + "</hp:t>"
+                        "</hp:run>"
+                    )
+
+                paragraph_list.append(
+                    p_start
+                    + ppr
+                    + run_xml
+                    + "</hp:p>"
+                )
+
+            replacement = "\n".join(
+                paragraph_list
+            )
+
+            new_xml = (
+                xml[:match.start()]
+                + replacement
+                + xml[match.end():]
+            )
+
+            Path(file_path).write_text(
+                new_xml,
+                encoding="utf-8"
+            )
+
+            return len(lines)
+
+    return 0
+
 # =========================================================
 # 14. 안내문 생성 화면
 # =========================================================
@@ -934,7 +1076,6 @@ if st.session_state.show_notice_generator:
                         "{{공고일자}}": notice_date,
                         "{{공고기한}}": notice_deadline,
                         "{{제목}}": title,
-                        "{{안내내용}}": notice_content,
                         "{{건 명}}": subject,
                         "{{건명}}": subject,
                         "{{일 시}}": date,
@@ -945,7 +1086,6 @@ if st.session_state.show_notice_generator:
                         "{{관리소명}}": office,
                     }
 
-                    # 실제 업로드 양식을 다시 만들어 저장
                     with tempfile.TemporaryDirectory() as temp_dir:
 
                         with zipfile.ZipFile(
@@ -954,56 +1094,21 @@ if st.session_state.show_notice_generator:
                         ) as zip_ref:
                             zip_ref.extractall(temp_dir)
 
-                        replaced_count = 0
+                        # 일반 항목 치환
+                        replaced_count = replace_hwpx_placeholders(
+                            temp_dir,
+                            replacements
+                        )
 
-                        for root, dirs, files in os.walk(temp_dir):
+                        # 안내문 본문은 실제 HWPX 문단으로 삽입
+                        body_count = (
+                            replace_hwpx_notice_content_as_paragraphs(
+                                temp_dir,
+                                notice_content
+                            )
+                        )
 
-                            for filename in files:
-
-                                if not filename.lower().endswith(".xml"):
-                                    continue
-
-                                file_path = os.path.join(
-                                    root,
-                                    filename
-                                )
-
-                                try:
-                                    with open(
-                                        file_path,
-                                        "r",
-                                        encoding="utf-8"
-                                    ) as f:
-                                        xml_text = f.read()
-                                except Exception:
-                                    continue
-
-                                original_text = xml_text
-
-                                for key, value in replacements.items():
-
-                                    safe_value = escape(
-                                        str(value),
-                                        quote=False
-                                    )
-
-                                    count = xml_text.count(key)
-
-                                    if count:
-                                        xml_text = xml_text.replace(
-                                            key,
-                                            safe_value
-                                        )
-                                        replaced_count += count
-
-                                if xml_text != original_text:
-
-                                    with open(
-                                        file_path,
-                                        "w",
-                                        encoding="utf-8"
-                                    ) as f:
-                                        f.write(xml_text)
+                        replaced_count += body_count
 
                         if replaced_count == 0:
                             raise RuntimeError(
@@ -1011,10 +1116,11 @@ if st.session_state.show_notice_generator:
                                 "찾지 못했습니다."
                             )
 
+                        # HWPX는 ZIP 기반이므로 다시 압축
                         with zipfile.ZipFile(
                             output_path,
                             "w",
-                            zipfile.ZIP_DEFLATED
+                            compression=zipfile.ZIP_DEFLATED
                         ) as zip_ref:
 
                             for root, dirs, files in os.walk(temp_dir):
