@@ -8,6 +8,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 import os
+import re
 import time
 import zipfile
 import tempfile
@@ -103,7 +104,14 @@ st.markdown(
         margin-bottom: 8px;
     }
 
-    .welcome-text {
+        .notice-preview {
+        line-height: 2.0;
+        white-space: pre-line;
+        font-size: 14px;
+        color: #334b64;
+    }
+
+.welcome-text {
         color: #66758a;
         font-size: 13px;
         line-height: 1.7;
@@ -677,7 +685,8 @@ def generate_notice_content(
 [작성 규칙]
 1. 제목을 1개 작성한다.
 2. 안내문 본문은 반드시 5줄 이내로 작성한다.
-3. 본문은 입주민이 이해하기 쉬운 정중한 행정문체로 작성한다.
+3. 각 문장은 반드시 한 줄씩 줄바꿈하여 작성한다.
+4. 본문은 입주민이 이해하기 쉬운 정중한 행정문체로 작성한다.
 4. 사용자의 요청과 관련된 법령·고시·공식 기준을 고려한다.
 5. 확인되지 않은 법 조항, 법적 의무, 과태료, 처벌 등을 절대로 만들어내지 않는다.
 6. 법적 근거가 명확하지 않은 경우 "관련 유지관리 기준에 따라" 등
@@ -894,9 +903,8 @@ if st.session_state.show_notice_generator:
                     <div class="welcome-title">
                     안내내용
                     </div>
-                    <div style="font-size:14px;line-height:1.8;
-                    color:#334b64;">
-                    {escape(notice_content).replace(chr(10), '<br>')}
+                    <div class="notice-preview">
+                    {escape(notice_content).replace(chr(10), "<br>")}
                     </div>
                     </div>
                     """,
