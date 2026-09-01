@@ -16,6 +16,8 @@ import copy
 import xml.etree.ElementTree as ET
 import html
 import urllib.request
+import json
+import io
 
 
 # =========================================================
@@ -659,6 +661,257 @@ def search_documents(
 
 
 
+
+# ---------------------------------------------------------
+# GitHub 규정집/양식 설정
+# Streamlit Cloud → Settings → Secrets에서 설정 권장
+#
+# GITHUB_USERNAME = "본인 GitHub 사용자명"
+# GITHUB_REPOSITORY = "저장소명"
+# GITHUB_BRANCH = "main"
+# GITHUB_TOKEN = "개인 저장소라면 선택사항"
+# ---------------------------------------------------------
+
+GITHUB_USERNAME = st.secrets.get(
+    "Fin1041",
+    ""
+)
+
+GITHUB_REPOSITORY = st.secrets.get(
+    "AI",
+    ""
+)
+
+GITHUB_BRANCH = st.secrets.get(
+    "GITHUB_BRANCH",
+    "main"
+)
+
+GITHUB_TOKEN = st.secrets.get(
+    "GITHUB_TOKEN",
+    ""
+)
+
+PLAN_PDF_PATH = "templates/plan.pdf"
+
+
+def _github_headers():
+    headers = {
+        "User-Agent": "house-management-notice-app"
+    }
+
+    if GITHUB_TOKEN:
+        headers["Authorization"] = (
+            f"Bearer {GITHUB_TOKEN}"
+        )
+
+    return headers
+
+
+@st.cache_data(ttl=3600)
+
+@st.cache_data(ttl=3600)
+def _get_plan_file_urls():
+    """
+    GitHub의 단일 규정집 templates/plan.pdf만 사용한다.
+    """
+    if not GITHUB_USERNAME or not GITHUB_REPOSITORY:
+        return []
+
+    url = (
+        f"https://raw.githubusercontent.com/"
+        f"{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/"
+        f"{GITHUB_BRANCH}/{PLAN_PDF_PATH}"
+    )
+
+    return [
+        {
+            "name": "plan.pdf",
+            "url": url
+        }
+    ]
+
+
+def _load_plan_regulation_pages():
+    """
+    templates/plan.pdf를 페이지별 텍스트로 읽는다.
+    """
+    files = _get_plan_file_urls()
+
+    pages = []
+
+    if not files:
+        return pages
+
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        return pages
+
+    for file_info in files:
+
+        request = urllib.request.Request(
+            file_info["url"],
+            headers=_github_headers()
+        )
+
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=30
+            ) as response:
+                pdf_bytes = response.read()
+        except Exception:
+            continue
+
+        try:
+            reader = PdfReader(
+                io.BytesIO(pdf_bytes)
+            )
+        except Exception:
+            continue
+
+        for page_no, page in enumerate(
+            reader.pages,
+            start=1
+        ):
+
+            try:
+                text = (
+                    page.extract_text()
+                    or ""
+                ).strip()
+            except Exception:
+                continue
+
+            if not text:
+                continue
+
+            pages.append(
+                {
+                    "filename": file_info["name"],
+                    "page": page_no,
+                    "text": text
+                }
+            )
+
+    return pages
+
+
+@st.cache_resource
+def _load_plan_embeddings():
+    """
+    PLAN 규정집 페이지를 임베딩하여 캐시한다.
+    """
+    pages = _load_plan_regulation_pages()
+
+    if not pages:
+        return None, []
+
+    texts = [
+        "passage: " + item["text"][:5000]
+        for item in pages
+    ]
+
+    embeddings = embedding_model.encode(
+        texts,
+        normalize_embeddings=True,
+        show_progress_bar=False
+    )
+
+    embeddings = np.asarray(
+        embeddings,
+        dtype="float32"
+    )
+
+    return embeddings, pages
+
+
+def search_plan_regulations(
+    query,
+    top_k=5,
+    min_score=0.25
+):
+    """
+    templates/plan 규정집을 우선 검색한다.
+    관련 근거가 충분한 경우만 반환한다.
+    """
+
+    query = str(
+        query or ""
+    ).strip()
+
+    if not query:
+        return []
+
+    embeddings, pages = (
+        _load_plan_embeddings()
+    )
+
+    if embeddings is None or not pages:
+        return []
+
+    query_embedding = embedding_model.encode(
+        ["query: " + query],
+        normalize_embeddings=True,
+        show_progress_bar=False
+    )
+
+    query_embedding = np.asarray(
+        query_embedding,
+        dtype="float32"
+    )
+
+    scores = (
+        embeddings @ query_embedding[0]
+    )
+
+    order = np.argsort(
+        scores
+    )[::-1]
+
+    results = []
+
+    # 같은 규정집 페이지가 지나치게 반복되지 않도록 제한
+    per_file = {}
+
+    for idx in order:
+
+        score = float(
+            scores[idx]
+        )
+
+        if score < min_score:
+            continue
+
+        item = pages[int(idx)]
+        filename = item["filename"]
+
+        per_file.setdefault(
+            filename,
+            0
+        )
+
+        if per_file[filename] >= 2:
+            continue
+
+        result = dict(item)
+        result["score"] = score
+
+        results.append(
+            result
+        )
+
+        per_file[filename] += 1
+
+        if len(results) >= top_k:
+            break
+
+    return results
+
+
+
+
 # =========================================================
 # AI 안내문 생성
 # =========================================================
@@ -666,13 +919,15 @@ def search_documents(
 HWPX_TEMPLATE_URLS = [
     (
         f"https://raw.githubusercontent.com/"
-        f"Fin1041/AI/"
-        f"main/templates/notice_template.hwpx"
+        f"{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/"
+        f"{GITHUB_BRANCH}/templates/notice_template.hwpx"
     ),
- 
+    (
+        f"https://raw.githubusercontent.com/"
+        f"{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/"
+        f"{GITHUB_BRANCH}/templates/notice_template.hwpx"
+    ),
 ]
-
-
 
 
 
@@ -769,7 +1024,7 @@ def download_hwpx_template(urls):
         + "\n".join(errors)
         + "\n\n"
         "GitHub templates 폴더에 "
-        "`notice_template(2).hwpx`를 올려주세요."
+        "`notice_template.hwpx`를 올려주세요."
     )
 
 def _gemini_notice_request(prompt):
@@ -852,7 +1107,7 @@ def generate_notice_text(
 5. 한 줄은 공백 제외 약 20~25글자를 목표로 한다.
 6. 각 문장은 반드시 한 줄씩 작성한다.
 7. 내용은 건명에 대한 목적, 관리 필요성, 입주민 협조사항 중심으로 간단히 작성한다.
-8. 관련 규정집에서 실제 규정이나 기준이 확인되면 그 명칭 또는 핵심 내용을 짧게 1줄 포함한다.
+8. templates/plan.pdf에서 실제 규정이나 기준이 확인되면 그 명칭 또는 핵심 내용을 짧게 1줄 포함한다.
 9. 검색 결과에 없는 법조문, 의무사항, 과태료, 처벌을 절대 만들어내지 않는다.
 10. 일시, 날짜, 업체명, 전화번호, 관리소명은 안내내용에 넣지 않는다.
 11. 같은 내용을 반복하지 않는다.
@@ -1158,7 +1413,7 @@ def create_notice_hwpx(
     office
 ):
     """
-    notice_template(2).hwpx의
+    notice_template.hwpx의
     {{안내내용1}}~{{안내내용5}} 기존 문단을 사용한다.
     """
 
@@ -1537,22 +1792,39 @@ def show_notice_generator():
 
         try:
 
-            # 등록된 전체 규정집에서 검색
-            regulation_results = []
-
-            for filename in filenames:
-                results = search_documents(
-                    f"{subject} {request_text}",
-                    filename,
-                    top_k=3
-                )
-                regulation_results.extend(results)
-
-            # 관련도가 높은 순으로 정렬
-            regulation_results.sort(
-                key=lambda x: float(x.get("score", 0)),
-                reverse=True
+            # =================================================
+            # 1. templates/plan 규정집을 최우선 검색
+            # =================================================
+            plan_results = search_plan_regulations(
+                query=f"{subject} {request_text}",
+                top_k=5,
+                min_score=0.25
             )
+
+            # PLAN에서 찾은 근거가 우선.
+            # PLAN에서 찾지 못한 경우 기존 vector_db도 보조적으로 사용.
+            regulation_results = list(
+                plan_results
+            )
+
+            if not regulation_results:
+
+                for filename in filenames:
+
+                    regulation_results.extend(
+                        search_documents(
+                            f"{subject} {request_text}",
+                            filename,
+                            top_k=2
+                        )
+                    )
+
+                regulation_results.sort(
+                    key=lambda x: float(
+                        x.get("score", 0)
+                    ),
+                    reverse=True
+                )
 
             context_parts = []
 
@@ -1560,8 +1832,17 @@ def show_notice_generator():
                 regulation_results[:8],
                 start=1
             ):
+
+                source_type = (
+                    "PLAN 규정집(plan.pdf)"
+                    if result.get("filename") == "plan.pdf"
+                    else
+                    "기존 규정집"
+                )
+
                 context_parts.append(
                     f"[검색결과 {i}]\n"
+                    f"출처: {source_type}\n"
                     f"문서명: {result.get('filename', '')}\n"
                     f"페이지: {result.get('page', '')}\n"
                     f"내용: {result.get('text', '')}"
