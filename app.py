@@ -663,17 +663,24 @@ def search_documents(
 
 
 # ---------------------------------------------------------
-# GitHub 설정
-# ---------------------------------------------------------
 
+# =========================================================
+# 13-A. AI 안내문 생성
+# =========================================================
+
+# GitHub 직접 설정
 GITHUB_USERNAME = "Fin1041"
 GITHUB_REPOSITORY = "AI"
 GITHUB_BRANCH = "main"
 
-GITHUB_TOKEN = ""
-
 PLAN_PDF_PATH = "templates/plan.pdf"
 HWPX_TEMPLATE_PATH = "templates/notice_template.hwpx"
+
+
+def _github_headers():
+    return {
+        "User-Agent": "house-management-notice-app"
+    }
 
 
 def _github_raw_url(path):
@@ -686,93 +693,122 @@ def _github_raw_url(path):
     )
 
 
-HWPX_TEMPLATE_URLS = [
-    _github_raw_url(HWPX_TEMPLATE_PATH)
-]
+HWPX_TEMPLATE_URL = _github_raw_url(
+    HWPX_TEMPLATE_PATH
+)
+
+PLAN_PDF_URL = _github_raw_url(
+    PLAN_PDF_PATH
+)
 
 
-def _github_headers():
-    headers = {
-        "User-Agent": "house-management-notice-app"
-    }
+def download_bytes(url):
+    request = urllib.request.Request(
+        url,
+        headers=_github_headers()
+    )
 
-    if GITHUB_TOKEN:
-        headers["Authorization"] = (
-            f"Bearer {GITHUB_TOKEN}"
+    with urllib.request.urlopen(
+        request,
+        timeout=30
+    ) as response:
+        return response.read()
+
+
+def download_hwpx_template(url):
+    try:
+        data = download_bytes(url)
+    except Exception as e:
+        raise RuntimeError(
+            "GitHub에서 notice_template.hwpx를 가져오지 못했습니다.\n"
+            + str(e)
         )
 
-    return headers
+    try:
+        with zipfile.ZipFile(
+            __import__("io").BytesIO(data),
+            "r"
+        ) as z:
+            names = z.namelist()
+
+            if not names or names[0] != "mimetype":
+                raise RuntimeError(
+                    "다운로드한 파일이 정상적인 HWPX가 아닙니다."
+                )
+
+            if z.read("mimetype") != b"application/hwp+zip":
+                raise RuntimeError(
+                    "HWPX mimetype이 올바르지 않습니다."
+                )
+
+            if "Contents/section0.xml" not in names:
+                raise RuntimeError(
+                    "HWPX에 Contents/section0.xml이 없습니다."
+                )
+
+    except zipfile.BadZipFile as e:
+        raise RuntimeError(
+            "GitHub에서 HWPX가 아닌 파일을 받았습니다."
+        ) from e
+
+    f = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".hwpx"
+    )
+
+    try:
+        f.write(data)
+        f.flush()
+    finally:
+        f.close()
+
+    return f.name
 
 
-@st.cache_data(ttl=3600)
-def _get_plan_file_urls():
-    """GitHub의 templates/plan.pdf 단일 규정집 URL."""
-    return [
-        {
-            "name": "plan.pdf",
-            "url": _github_raw_url(PLAN_PDF_PATH)
-        }
-    ]
-
-
-def _load_plan_regulation_pages():
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_plan_pdf_pages():
     """
-    templates/plan.pdf를 페이지별 텍스트로 읽는다.
+    GitHub의 templates/plan.pdf 단일 규정집을
+    페이지 단위로 읽는다.
     """
-    files = _get_plan_file_urls()
+    try:
+        data = download_bytes(
+            PLAN_PDF_URL
+        )
+    except Exception as e:
+        raise RuntimeError(
+            "templates/plan.pdf를 가져오지 못했습니다.\n"
+            + str(e)
+        )
+
+    try:
+        reader = PdfReader(
+            __import__("io").BytesIO(data)
+        )
+    except Exception as e:
+        raise RuntimeError(
+            "plan.pdf를 읽지 못했습니다.\n"
+            + str(e)
+        )
 
     pages = []
 
-    if not files:
-        return pages
-
-    try:
-        from pypdf import PdfReader
-    except Exception:
-        return pages
-
-    for file_info in files:
-
-        request = urllib.request.Request(
-            file_info["url"],
-            headers=_github_headers()
-        )
+    for page_no, page in enumerate(
+        reader.pages,
+        start=1
+    ):
 
         try:
-            with urllib.request.urlopen(
-                request,
-                timeout=30
-            ) as response:
-                pdf_bytes = response.read()
+            text = (
+                page.extract_text()
+                or ""
+            ).strip()
         except Exception:
-            continue
+            text = ""
 
-        try:
-            reader = PdfReader(
-                io.BytesIO(pdf_bytes)
-            )
-        except Exception:
-            continue
-
-        for page_no, page in enumerate(
-            reader.pages,
-            start=1
-        ):
-
-            try:
-                text = (
-                    page.extract_text()
-                    or ""
-                ).strip()
-            except Exception:
-                continue
-
-            if not text:
-                continue
-
+        if text:
             pages.append(
                 {
-                    "filename": file_info["name"],
                     "page": page_no,
                     "text": text
                 }
@@ -782,22 +818,20 @@ def _load_plan_regulation_pages():
 
 
 @st.cache_resource
-def _load_plan_embeddings():
+def load_plan_search_index():
     """
-    PLAN 규정집 페이지를 임베딩하여 캐시한다.
+    plan.pdf 페이지를 기존 embedding 모델로 인덱싱한다.
     """
-    pages = _load_plan_regulation_pages()
+    pages = load_plan_pdf_pages()
 
     if not pages:
         return None, []
 
-    texts = [
-        "passage: " + item["text"][:5000]
-        for item in pages
-    ]
-
     embeddings = embedding_model.encode(
-        texts,
+        [
+            "passage: " + page["text"][:6000]
+            for page in pages
+        ],
         normalize_embeddings=True,
         show_progress_bar=False
     )
@@ -810,16 +844,13 @@ def _load_plan_embeddings():
     return embeddings, pages
 
 
-def search_plan_regulations(
+def search_plan_pdf(
     query,
-    top_k=5,
-    min_score=0.25
+    top_k=5
 ):
     """
-    templates/plan 규정집을 우선 검색한다.
-    관련 근거가 충분한 경우만 반환한다.
+    안내문 건명/요청내용과 관련된 plan.pdf 근거를 검색한다.
     """
-
     query = str(
         query or ""
     ).strip()
@@ -828,10 +859,10 @@ def search_plan_regulations(
         return []
 
     embeddings, pages = (
-        _load_plan_embeddings()
+        load_plan_search_index()
     )
 
-    if embeddings is None or not pages:
+    if embeddings is None:
         return []
 
     query_embedding = embedding_model.encode(
@@ -843,10 +874,10 @@ def search_plan_regulations(
     query_embedding = np.asarray(
         query_embedding,
         dtype="float32"
-    )
+    )[0]
 
     scores = (
-        embeddings @ query_embedding[0]
+        embeddings @ query_embedding
     )
 
     order = np.argsort(
@@ -855,204 +886,30 @@ def search_plan_regulations(
 
     results = []
 
-    # 같은 규정집 페이지가 지나치게 반복되지 않도록 제한
-    per_file = {}
-
-    for idx in order:
-
-        score = float(
-            scores[idx]
-        )
-
-        if score < min_score:
-            continue
-
-        item = pages[int(idx)]
-        filename = item["filename"]
-
-        per_file.setdefault(
-            filename,
-            0
-        )
-
-        if per_file[filename] >= 2:
-            continue
-
-        result = dict(item)
-        result["score"] = score
+    for idx in order[:top_k]:
 
         results.append(
-            result
+            {
+                "filename": "plan.pdf",
+                "page": pages[int(idx)]["page"],
+                "text": pages[int(idx)]["text"],
+                "score": float(
+                    scores[idx]
+                )
+            }
         )
 
-        per_file[filename] += 1
-
-        if len(results) >= top_k:
-            break
-
     return results
-
-
-
-
-# =========================================================
-# AI 안내문 생성
-# =========================================================
-
-def download_hwpx_template(urls):
-    """
-    GitHub에서 HWPX 원본 양식을 다운로드한다.
-    새 템플릿(번호형 안내내용)을 먼저 시도하고
-    실패하면 기존 notice_template.hwpx를 시도한다.
-    """
-
-    if isinstance(urls, str):
-        urls = [urls]
-
-    errors = []
-
-    for url in urls:
-
-        try:
-
-            request = urllib.request.Request(
-                url,
-                headers={"User-Agent": "Mozilla/5.0"}
-            )
-
-            with urllib.request.urlopen(
-                request,
-                timeout=30
-            ) as response:
-                data = response.read()
-
-            if not data:
-                raise RuntimeError("빈 파일입니다.")
-
-            with zipfile.ZipFile(
-                __import__("io").BytesIO(data),
-                "r"
-            ) as z:
-
-                names = z.namelist()
-
-                if not names or names[0] != "mimetype":
-                    raise RuntimeError(
-                        "정상적인 HWPX ZIP이 아닙니다."
-                    )
-
-                if z.read("mimetype") != b"application/hwp+zip":
-                    raise RuntimeError(
-                        "HWPX mimetype이 올바르지 않습니다."
-                    )
-
-                if "Contents/section0.xml" not in names:
-                    raise RuntimeError(
-                        "section0.xml이 없습니다."
-                    )
-
-                section = z.read(
-                    "Contents/section0.xml"
-                ).decode("utf-8")
-
-                # 새 양식 우선 확인
-                has_new = all(
-                    f"{{{{안내내용{i}}}}}" in section
-                    for i in range(1, 6)
-                )
-
-                # 구 양식도 허용
-                has_old = "{{안내내용}}" in section
-
-                if not (has_new or has_old):
-                    raise RuntimeError(
-                        "안내내용 placeholder를 찾지 못했습니다."
-                    )
-
-            f = tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=".hwpx"
-            )
-
-            try:
-                f.write(data)
-                f.flush()
-            finally:
-                f.close()
-
-            return f.name
-
-        except Exception as e:
-            errors.append(
-                f"{url}: {e}"
-            )
-
-    raise RuntimeError(
-        "GitHub에서 정상적인 안내문 템플릿을 찾지 못했습니다.\n\n"
-        + "\n".join(errors)
-        + "\n\n"
-        "GitHub templates 폴더에 "
-        "`notice_template.hwpx`를 올려주세요."
-    )
-
-def _gemini_notice_request(prompt):
-    """Gemini 일시 오류를 최대 5회 재시도."""
-    last_error = None
-
-    for attempt in range(5):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.1-flash-lite",
-                contents=prompt
-            )
-
-            text = (response.text or "").strip()
-
-            if text:
-                return text
-
-            raise RuntimeError("Gemini가 빈 응답을 반환했습니다.")
-
-        except Exception as e:
-            last_error = e
-            err = str(e).upper()
-
-            temporary = (
-                "503" in err
-                or "UNAVAILABLE" in err
-                or "429" in err
-                or "RESOURCE_EXHAUSTED" in err
-            )
-
-            if not temporary:
-                raise
-
-            if attempt < 4:
-                time.sleep(2 ** attempt)
-
-    raise RuntimeError(
-        "Gemini 서버가 일시적으로 혼잡합니다. "
-        "잠시 후 다시 시도해주세요.\n"
-        f"마지막 오류: {last_error}"
-    )
-
-
-
 
 
 def generate_notice_text(
     request_text,
     subject,
-    date_value,
-    company,
-    phone,
-    office,
-    regulation_context=""
+    plan_context=""
 ):
     """
-    제목 15자 이하 / 본문 최대 5줄.
-    본문은 20~25글자 정도를 목표로 짧게 작성한다.
-    규정 근거가 확인될 경우 1줄 정도로 간단히 반영한다.
+    제목 15자 이하 / 본문 무조건 5줄 이하.
+    plan.pdf에 실제 근거가 있으면 본문 안에 직접 포함한다.
     """
 
     prompt = f"""
@@ -1064,27 +921,29 @@ def generate_notice_text(
 [사용자 요청]
 {request_text}
 
-[관련 규정집 검색 결과]
-{regulation_context if regulation_context else "관련 규정이 검색되지 않았습니다."}
+[plan.pdf에서 검색한 관련 규정]
+{plan_context if plan_context else "관련 규정 근거를 찾지 못했습니다."}
 
-[작성 규칙]
-1. 제목은 반드시 15자 이내다.
-2. 제목에는 건명의 핵심어를 포함한다.
+작성 규칙:
+1. 제목은 반드시 15자 이하로 작성한다.
+2. 제목은 건명의 핵심어를 포함한다.
 3. 안내내용은 반드시 5줄 이내다.
-4. 가능하면 4~5줄로 작성한다.
-5. 한 줄은 공백 제외 약 20~25글자를 목표로 한다.
-6. 각 문장은 반드시 한 줄씩 작성한다.
-7. 내용은 건명에 대한 목적, 관리 필요성, 입주민 협조사항 중심으로 간단히 작성한다.
-8. templates/plan.pdf에서 실제 규정이나 기준이 확인되면 그 명칭 또는 핵심 내용을 짧게 1줄 포함한다.
-9. 검색 결과에 없는 법조문, 의무사항, 과태료, 처벌을 절대 만들어내지 않는다.
-10. 일시, 날짜, 업체명, 전화번호, 관리소명은 안내내용에 넣지 않는다.
-11. 같은 내용을 반복하지 않는다.
-12. 어려운 법률 표현을 줄이고 입주민이 바로 이해할 수 있게 작성한다.
-13. 본문은 5줄을 넘기지 않는다.
+4. 한 줄에 한 문장만 작성한다.
+5. 각 줄은 가능하면 공백 제외 약 20~25글자 정도로 간결하게 쓴다.
+6. 내용은 건명에 대한 목적, 필요성, 관리방법, 입주민 협조 순으로 간단히 작성한다.
+7. plan.pdf에서 실제 관련 규정이 확인되면 반드시 안내내용 중 1개 문장에
+   규정명 또는 확인된 기준을 자연스럽게 직접 포함한다.
+8. 규정은 별도의 참고사항처럼 길게 쓰지 말고 본문 문장 속에 넣는다.
+9. 검색결과에 없는 법조문 번호나 법적 의무를 절대로 만들어내지 않는다.
+10. plan.pdf에서 관련 근거가 없으면 규정을 억지로 넣지 않는다.
+11. 일시, 날짜, 업체명, 전화번호, 관리소명은 본문에 넣지 않는다.
+12. 같은 표현을 반복하지 않는다.
+13. 입주민이 한눈에 이해할 수 있는 쉬운 표현을 사용한다.
+14. 본문은 최대 5줄을 절대 넘기지 않는다.
 
-[출력 형식]
+[출력형식]
 [제목]
-15자 이내 제목
+제목
 
 [본문]
 문장1
@@ -1094,25 +953,34 @@ def generate_notice_text(
 문장5
 
 [근거]
-확인된 규정/기준이 있으면 짧게 1줄
+plan.pdf에서 실제 확인된 규정명과 페이지만 간단히 표시
 """
 
-    text = None
     last_error = None
 
     for attempt in range(5):
+
         try:
             response = client.models.generate_content(
                 model="gemini-3.1-flash-lite",
                 contents=prompt
             )
-            text = (response.text or "").strip()
+
+            text = (
+                response.text
+                or ""
+            ).strip()
+
             if text:
                 break
+
             last_error = "Gemini 빈 응답"
+
         except Exception as e:
+
             last_error = e
             upper = str(e).upper()
+
             if not (
                 "503" in upper
                 or "UNAVAILABLE" in upper
@@ -1120,13 +988,16 @@ def generate_notice_text(
                 or "RESOURCE_EXHAUSTED" in upper
             ):
                 raise
+
             if attempt < 4:
-                time.sleep(2 ** attempt)
+                time.sleep(
+                    2 ** attempt
+                )
 
     if not text:
         raise RuntimeError(
-            "Gemini 서버가 현재 응답하지 않습니다. "
-            f"마지막 오류: {last_error}"
+            "Gemini 서버가 현재 응답하지 않습니다.\n"
+            + str(last_error)
         )
 
     title = ""
@@ -1134,182 +1005,32 @@ def generate_notice_text(
     basis = ""
 
     if "[제목]" in text:
-        rest = text.split("[제목]", 1)[1]
+
+        rest = text.split(
+            "[제목]",
+            1
+        )[1]
+
         if "[본문]" in rest:
-            title, rest = rest.split("[본문]", 1)
+
+            title, rest = rest.split(
+                "[본문]",
+                1
+            )
+
             if "[근거]" in rest:
-                body, basis = rest.split("[근거]", 1)
+
+                body, basis = rest.split(
+                    "[근거]",
+                    1
+                )
+
             else:
                 body = rest
+
         else:
             title = rest
 
-    title = re.sub(r"\s+", " ", title.strip())[:15]
-    if not title:
-        title = (subject.strip() or "안내문")[:15]
-
-    body = re.sub(
-        r"^\s*(?:[-•·]|\d+[\.\)])\s*",
-        "",
-        body,
-        flags=re.MULTILINE
-    )
-
-    lines = [
-        line.strip()
-        for line in body.splitlines()
-        if line.strip()
-    ]
-
-    if len(lines) == 1:
-        one = lines[0]
-        one = re.sub(
-            r"(?<=[다요함됨임])\.\s+",
-            ".\n",
-            one
-        )
-        lines = [
-            x.strip()
-            for x in one.splitlines()
-            if x.strip()
-        ]
-
-    forbidden = [
-        str(v).strip()
-        for v in [date_value, company, phone, office]
-        if str(v).strip()
-    ]
-
-    cleaned = [
-        line
-        for line in lines
-        if not any(f in line for f in forbidden)
-    ]
-
-    # 본문은 무조건 5줄 이내
-    body = "\n".join(cleaned[:5])
-
-    return title, body, basis
-
-def generate_notice_content(
-    request_text,
-    subject,
-    date_value,
-    company,
-    phone,
-    office,
-    regulation_context=""
-):
-    """
-    제목 최대 15자 / 안내내용 최대 5문장.
-    본문에는 일시·업체·전화번호·관리소명을 넣지 않는다.
-    """
-
-    prompt = f"""
-너는 공동주택 관리사무소의 공식 안내문 작성 담당자이다.
-
-[건명]
-{subject}
-
-[사용자 요청]
-{request_text}
-
-[관련 규정집 검색 결과]
-{regulation_context if regulation_context else "관련 규정집에서 관련 내용을 찾지 못했습니다."}
-
-[참고 정보]
-일시: {date_value}
-업체: {company}
-전화번호: {phone}
-관리소명: {office}
-
-[작성 규칙]
-1. 제목은 반드시 15자 이내로 작성한다.
-2. 제목은 건명의 핵심을 포함하여 짧고 명확하게 작성한다.
-3. 안내내용은 최대 5문장으로 작성한다.
-4. 각 문장은 반드시 한 줄씩 구분한다.
-5. 건명과 관련된 작업 목적, 관리 필요성, 입주민 협조사항을 중심으로 작성한다.
-6. 등록된 규정집 검색 결과에 규정 또는 기준이 있으면 그것을 최우선 근거로 사용한다.
-7. 검색 결과에 없는 법조문 번호, 법적 의무사항, 과태료·처벌 등을 만들어내지 않는다.
-8. 일시, 날짜, 업체명, 전화번호, 관리소명은 안내내용에서 절대로 언급하지 않는다.
-9. 확인되지 않은 내용은 사실처럼 단정하지 않는다.
-10. 정중하고 간결한 행정문체를 사용한다.
-11. 불필요한 인사말과 장황한 설명은 생략한다.
-
-[출력 형식]
-[제목]
-제목
-
-[본문]
-문장 1
-문장 2
-문장 3
-문장 4
-문장 5
-
-[근거]
-확인된 규정/기준만 간단히 작성한다.
-"""
-
-    # Gemini 호출은 최대 5회 재시도
-    text = None
-    last_error = None
-
-    for attempt in range(5):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.1-flash-lite",
-                contents=prompt
-            )
-            text = (response.text or "").strip()
-
-            if text:
-                break
-
-            last_error = "빈 응답"
-
-        except Exception as e:
-            last_error = e
-            err = str(e).upper()
-
-            temporary = (
-                "503" in err
-                or "UNAVAILABLE" in err
-                or "429" in err
-                or "RESOURCE_EXHAUSTED" in err
-            )
-
-            if not temporary:
-                raise
-
-            if attempt < 4:
-                time.sleep(2 ** attempt)
-
-    if not text:
-        raise RuntimeError(
-            "Gemini 서버가 현재 응답하지 않습니다. "
-            "잠시 후 다시 시도해주세요. "
-            f"마지막 오류: {last_error}"
-        )
-
-    title = ""
-    body = ""
-    basis = ""
-
-    if "[제목]" in text:
-        rest = text.split("[제목]", 1)[1]
-
-        if "[본문]" in rest:
-            title, rest = rest.split("[본문]", 1)
-
-            if "[근거]" in rest:
-                body, basis = rest.split("[근거]", 1)
-            else:
-                body = rest
-        else:
-            title = rest
-
-    # 제목 15자 제한
     title = re.sub(
         r"\s+",
         " ",
@@ -1317,9 +1038,11 @@ def generate_notice_content(
     )[:15]
 
     if not title:
-        title = (subject.strip() or "안내문")[:15]
+        title = (
+            subject.strip()
+            or "안내문"
+        )[:15]
 
-    # 본문 줄 정리
     body = re.sub(
         r"^\s*(?:[-•·]|\d+[\.\)])\s*",
         "",
@@ -1331,40 +1054,11 @@ def generate_notice_content(
         line.strip()
         for line in body.splitlines()
         if line.strip()
-    ]
+    ][:5]
 
-    # 한 줄로 반환했으면 문장 종결 뒤에서 분리
-    if len(lines) == 1:
-        one = lines[0]
-        one = re.sub(
-            r"([다요함됨임])\.\s+",
-            r"\1.\n",
-            one
-        )
-        lines = [
-            line.strip()
-            for line in one.splitlines()
-            if line.strip()
-        ]
-
-    # 입력값이 본문에 직접 포함된 문장은 제거
-    forbidden = [
-        str(v).strip()
-        for v in [date_value, company, phone, office]
-        if str(v).strip()
-    ]
-
-    cleaned = []
-    for line in lines:
-        if any(v in line for v in forbidden):
-            continue
-        cleaned.append(line)
-
-    body = "\n".join(cleaned[:5])
+    body = "\n".join(lines)
 
     return title, body, basis
-
-
 
 
 def create_notice_hwpx(
@@ -1382,15 +1076,17 @@ def create_notice_hwpx(
 ):
     """
     notice_template.hwpx의
-    {{안내내용1}}~{{안내내용5}} 기존 문단을 사용한다.
+    {{안내내용1}}~{{안내내용5}}에
+    각각 한 문장씩 넣는다.
     """
 
-    lines = [
+    body_lines = [
         line.strip()
         for line in str(body).splitlines()
         if line.strip()
     ][:5]
 
+    # 짧은 본문을 위해 최대 5개 paragraph 사용
     with zipfile.ZipFile(
         template_path,
         "r"
@@ -1403,7 +1099,9 @@ def create_notice_hwpx(
                 "HWPX 원본 구조가 올바르지 않습니다."
             )
 
-        if "Contents/section0.xml" not in names:
+        section = "Contents/section0.xml"
+
+        if section not in names:
             raise RuntimeError(
                 "Contents/section0.xml이 없습니다."
             )
@@ -1412,9 +1110,6 @@ def create_notice_hwpx(
             name: zin.read(name)
             for name in names
         }
-
-        section = "Contents/section0.xml"
-        xml = data[section].decode("utf-8")
 
         replacements = {
             "{{공고일자}}": notice_date,
@@ -1430,163 +1125,100 @@ def create_notice_hwpx(
             "{{관리소명}}": office,
         }
 
-        for key, value in replacements.items():
-            xml = xml.replace(
-                key,
-                html.escape(
-                    str(value),
+        # 전체 XML 일반 치환
+        for name in names:
+
+            if not name.lower().endswith(".xml"):
+                continue
+
+            xml_text = data[name].decode(
+                "utf-8"
+            )
+
+            for key, value in replacements.items():
+
+                xml_text = xml_text.replace(
+                    key,
+                    html.escape(
+                        str(value),
+                        quote=False
+                    )
+                )
+
+            data[name] = xml_text.encode(
+                "utf-8"
+            )
+
+        xml = data[section].decode(
+            "utf-8"
+        )
+
+        # 번호형 안내내용1~5
+        for i in range(1, 6):
+
+            key = f"{{{{안내내용{i}}}}}"
+
+            p = re.search(
+                r"<hp:p\b[^>]*>"
+                r"(?:(?!<hp:p\b)[\s\S])*?"
+                + re.escape(key)
+                + r"(?:(?!<hp:p\b)[\s\S])*?"
+                r"</hp:p>",
+                xml,
+                re.DOTALL
+            )
+
+            if not p:
+                raise RuntimeError(
+                    f"{key} 위치를 찾지 못했습니다."
+                )
+
+            paragraph = p.group(0)
+
+            t = re.search(
+                r"<hp:t\b[^>]*>.*?"
+                + re.escape(key)
+                + r".*?</hp:t>",
+                paragraph,
+                re.DOTALL
+            )
+
+            if not t:
+                raise RuntimeError(
+                    f"{key}의 기존 텍스트 영역을 찾지 못했습니다."
+                )
+
+            value = (
+                body_lines[i - 1]
+                if i <= len(body_lines)
+                else ""
+            )
+
+            paragraph = (
+                paragraph[:t.start()]
+                + "<hp:t>"
+                + html.escape(
+                    value,
                     quote=False
                 )
+                + "</hp:t>"
+                + paragraph[t.end():]
             )
 
-        # 새 템플릿: 안내내용1~5
-        numbered_keys = [
-            f"{{{{안내내용{i}}}}}"
-            for i in range(1, 6)
-        ]
-
-        if all(
-            key in xml
-            for key in numbered_keys
-        ):
-
-            for i, key in enumerate(
-                numbered_keys
-            ):
-
-                p = re.search(
-                    r"<hp:p\b[^>]*>"
-                    r"(?:(?!<hp:p\b)[\s\S])*?"
-                    + re.escape(key)
-                    + r"(?:(?!<hp:p\b)[\s\S])*?"
-                    r"</hp:p>",
-                    xml,
-                    re.DOTALL
-                )
-
-                if not p:
-                    raise RuntimeError(
-                        f"{key} 문단을 찾지 못했습니다."
-                    )
-
-                paragraph = p.group(0)
-
-                t = re.search(
-                    r"<hp:t\b[^>]*>.*?"
-                    + re.escape(key)
-                    + r".*?</hp:t>",
-                    paragraph,
-                    re.DOTALL
-                )
-
-                if not t:
-                    raise RuntimeError(
-                        f"{key}의 텍스트 영역을 찾지 못했습니다."
-                    )
-
-                value = (
-                    lines[i]
-                    if i < len(lines)
-                    else ""
-                )
-
-                paragraph = (
-                    paragraph[:t.start()]
-                    + "<hp:t>"
-                    + html.escape(
-                        value,
-                        quote=False
-                    )
-                    + "</hp:t>"
-                    + paragraph[t.end():]
-                )
-
-                xml = (
-                    xml[:p.start()]
-                    + paragraph
-                    + xml[p.end():]
-                )
-
-        # 구 템플릿: {{안내내용}} + 기존 문단
-        elif "{{안내내용}}" in xml:
-
-            p_matches = list(
-                re.finditer(
-                    r"<hp:p\b[^>]*>.*?</hp:p>",
-                    xml,
-                    re.DOTALL
-                )
+            xml = (
+                xml[:p.start()]
+                + paragraph
+                + xml[p.end():]
             )
 
-            body_idx = next(
-                (
-                    i
-                    for i, match in enumerate(p_matches)
-                    if "{{안내내용}}" in match.group(0)
-                ),
-                None
-            )
-
-            if body_idx is None:
-                raise RuntimeError(
-                    "기존 {{안내내용}} 문단을 찾지 못했습니다."
-                )
-
-            targets = p_matches[
-                body_idx:body_idx + 5
-            ]
-
-            if len(targets) < len(lines):
-                raise RuntimeError(
-                    "기존 템플릿의 본문 문단이 부족합니다."
-                )
-
-            for i in range(
-                len(lines) - 1,
-                -1,
-                -1
-            ):
-
-                match = targets[i]
-                paragraph = match.group(0)
-
-                t = re.search(
-                    r"<hp:t\b[^>]*>.*?</hp:t>",
-                    paragraph,
-                    re.DOTALL
-                )
-
-                if not t:
-                    raise RuntimeError(
-                        f"본문 {i+1}번째 텍스트 영역을 찾지 못했습니다."
-                    )
-
-                paragraph = (
-                    paragraph[:t.start()]
-                    + "<hp:t>"
-                    + html.escape(
-                        lines[i],
-                        quote=False
-                    )
-                    + "</hp:t>"
-                    + paragraph[t.end():]
-                )
-
-                xml = (
-                    xml[:match.start()]
-                    + paragraph
-                    + xml[match.end():]
-                )
-
-        else:
-            raise RuntimeError(
-                "HWPX 템플릿에서 안내내용 위치를 찾지 못했습니다."
-            )
-
+        # XML 검증
         ET.fromstring(xml)
-        data[section] = xml.encode("utf-8")
 
-        # ZIP 원본 속성 유지
+        data[section] = xml.encode(
+            "utf-8"
+        )
+
+        # ZIP 구조 유지
         with zipfile.ZipFile(
             output_path,
             "w"
@@ -1606,6 +1238,7 @@ def create_notice_hwpx(
                     data[name]
                 )
 
+    # 최종 검사
     with zipfile.ZipFile(
         output_path,
         "r"
@@ -1630,40 +1263,16 @@ def create_notice_hwpx(
 
             if name.lower().endswith(".xml"):
                 ET.fromstring(
-                    check.read(name).decode("utf-8")
+                    check.read(name).decode(
+                        "utf-8"
+                    )
                 )
 
     return output_path
 
-def create_hwpx(
-    template_path,
-    output_path,
-    title,
-    body,
-    notice_date,
-    notice_deadline,
-    subject,
-    work_date,
-    company,
-    phone,
-    office
-):
-    return create_notice_hwpx(
-        template_path,
-        output_path,
-        title,
-        body,
-        notice_date,
-        notice_deadline,
-        subject,
-        work_date,
-        company,
-        phone,
-        office
-    )
-
 
 def show_notice_generator():
+
     st.markdown(
         '<div class="ai-avatar" style="font-size:55px;">📄</div>',
         unsafe_allow_html=True
@@ -1675,71 +1284,63 @@ def show_notice_generator():
     )
 
     st.info(
-        "건명과 안내문 요청을 입력하면 등록된 규정집에서 관련 내용을 "
-        "먼저 검색하여 규정 중심의 안내문을 최대 5줄로 작성합니다."
+        "plan.pdf의 관련 규정을 먼저 확인하여 "
+        "근거가 있으면 안내내용에 직접 포함합니다."
     )
 
     notice_date = st.text_input(
         "① 공고일자",
-        placeholder="예: 2026년 9월 1일",
-        key="notice_date"
+        key="notice_date_direct_reg"
     )
 
     notice_deadline = st.text_input(
         "② 공고기한",
-        placeholder="예: 2026년 9월 10일까지",
-        key="notice_deadline"
+        key="notice_deadline_direct_reg"
     )
 
     subject = st.text_input(
         "③ 건명",
         placeholder="예: 보일러 세관",
-        key="notice_subject"
+        key="notice_subject_direct_reg"
     )
 
     work_date = st.text_input(
         "④ 일시",
-        placeholder="예: 2026년 9월 10일 09:00~17:00",
-        key="notice_work_date"
+        key="notice_work_date_direct_reg"
     )
 
     company = st.text_input(
         "⑤ 업체",
-        placeholder="예: ○○설비",
-        key="notice_company"
+        key="notice_company_direct_reg"
     )
 
     phone = st.text_input(
         "⑥ 전화번호",
-        placeholder="예: 053-123-4567",
-        key="notice_phone"
+        key="notice_phone_direct_reg"
     )
 
     office = st.text_input(
         "⑦ 관리소명",
-        placeholder="예: ○○관리소",
-        key="notice_office"
+        key="notice_office_direct_reg"
     )
 
     request_text = st.text_area(
         "⑧ 안내문 요청",
         placeholder=(
             "예: 보일러 세관에 대한 안내문을 "
-            "관련 규정 위주로 5줄 이내 작성해줘"
+            "관련 규정 중심으로 작성해줘"
         ),
-        height=120,
-        key="notice_request"
+        height=110,
+        key="notice_request_direct_reg"
     )
 
     if st.button(
-        "✨ 안내문 생성",
-        key="notice_create_unique",
+        "📄 안내문 생성",
+        key="notice_create_direct_reg",
         use_container_width=True
     ):
 
-        missing = []
-
-        for label, value in [
+        required = [
             ("공고일자", notice_date),
             ("건명", subject),
             ("일시", work_date),
@@ -1747,100 +1348,68 @@ def show_notice_generator():
             ("전화번호", phone),
             ("관리소명", office),
             ("안내문 요청", request_text),
-        ]:
-            if not str(value).strip():
-                missing.append(label)
+        ]
+
+        missing = [
+            name
+            for name, value in required
+            if not str(value).strip()
+        ]
 
         if missing:
+
             st.warning(
                 "다음 항목을 입력해주세요: "
                 + ", ".join(missing)
             )
+
             return
 
         try:
 
-            # =================================================
-            # 1. templates/plan 규정집을 최우선 검색
-            # =================================================
-            plan_results = search_plan_regulations(
-                query=f"{subject} {request_text}",
-                top_k=5,
-                min_score=0.25
-            )
+            # ① plan.pdf 우선 검색
+            with st.spinner(
+                "📚 plan.pdf에서 관련 규정을 찾고 있습니다..."
+            ):
 
-            # PLAN에서 찾은 근거가 우선.
-            # PLAN에서 찾지 못한 경우 기존 vector_db도 보조적으로 사용.
-            regulation_results = list(
-                plan_results
-            )
-
-            if not regulation_results:
-
-                for filename in filenames:
-
-                    regulation_results.extend(
-                        search_documents(
-                            f"{subject} {request_text}",
-                            filename,
-                            top_k=2
-                        )
-                    )
-
-                regulation_results.sort(
-                    key=lambda x: float(
-                        x.get("score", 0)
-                    ),
-                    reverse=True
+                plan_results = search_plan_pdf(
+                    f"{subject} {request_text}",
+                    top_k=5
                 )
 
             context_parts = []
 
             for i, result in enumerate(
-                regulation_results[:8],
+                plan_results,
                 start=1
             ):
 
-                source_type = (
-                    "PLAN 규정집(plan.pdf)"
-                    if result.get("filename") == "plan.pdf"
-                    else
-                    "기존 규정집"
-                )
-
                 context_parts.append(
-                    f"[검색결과 {i}]\n"
-                    f"출처: {source_type}\n"
-                    f"문서명: {result.get('filename', '')}\n"
-                    f"페이지: {result.get('page', '')}\n"
-                    f"내용: {result.get('text', '')}"
+                    f"[규정근거 {i}]\n"
+                    f"문서명: plan.pdf\n"
+                    f"페이지: {result['page']}페이지\n"
+                    f"내용:\n{result['text']}"
                 )
 
-            regulation_context = "\n\n".join(
+            plan_context = "\n\n".join(
                 context_parts
             )
 
+            # ② Gemini 안내문 작성
             with st.spinner(
-                "🤖 관련 규정을 확인하고 안내문을 작성하고 있습니다..."
+                "🤖 규정 근거를 반영하여 안내문을 작성하고 있습니다..."
             ):
 
                 title, body, basis = (
                     generate_notice_text(
-                        request_text,
-                        subject,
-                        work_date,
-                        company,
-                        phone,
-                        office,
-                        regulation_context
+                        request_text=request_text,
+                        subject=subject,
+                        plan_context=plan_context
                     )
                 )
 
-            st.success("✅ 안내문 문구가 완성되었습니다.")
-
-            st.markdown(
-                '<div class="section-title">📝 생성된 안내문</div>',
-                unsafe_allow_html=True
+            st.success(
+                "✅ 안내문이 완성되었습니다."
             )
 
             st.markdown(
@@ -1848,14 +1417,14 @@ def show_notice_generator():
                 <div class="welcome-card">
                 <div class="welcome-title">제목</div>
                 <div style="font-size:18px;font-weight:800;
-                color:#243c56;margin-bottom:15px;">
+                margin-bottom:15px;">
                 {html.escape(title)}
                 </div>
 
                 <div class="welcome-title">안내내용</div>
                 <div style="font-size:14px;line-height:2;
-                color:#334b64;white-space:pre-line;">
-                {html.escape(body).replace(chr(10), "<br>")}
+                white-space:pre-line;">
+                {html.escape(body)}
                 </div>
                 </div>
                 """,
@@ -1867,13 +1436,13 @@ def show_notice_generator():
                     "📚 참고한 근거: " + basis
                 )
 
+            # ③ HWPX 생성
             with st.spinner(
                 "📄 한글파일을 생성하고 있습니다..."
             ):
 
-                # GitHub에서 원본 양식 다운로드
                 template_file = download_hwpx_template(
-                    HWPX_TEMPLATE_URLS
+                    HWPX_TEMPLATE_URL
                 )
 
                 output_file = os.path.join(
@@ -1881,7 +1450,7 @@ def show_notice_generator():
                     "안내문_완성본.hwpx"
                 )
 
-                create_hwpx(
+                create_notice_hwpx(
                     template_file,
                     output_file,
                     title,
@@ -1899,14 +1468,14 @@ def show_notice_generator():
                 output_file,
                 "rb"
             ) as f:
-                data = f.read()
+                hwpx_data = f.read()
 
             st.download_button(
-                "📥 완성된 안내문 한글파일 다운로드",
-                data=data,
+                "📥 완성된 한글파일 다운로드",
+                data=hwpx_data,
                 file_name=f"{subject}_안내문.hwpx",
                 mime="application/vnd.hancom.hwpx",
-                key="notice_download_unique",
+                key="notice_download_direct_reg",
                 use_container_width=True
             )
 
@@ -1921,14 +1490,18 @@ def show_notice_generator():
                 or "429" in upper
                 or "RESOURCE_EXHAUSTED" in upper
             ):
+
                 st.warning(
                     "🤖 Gemini 서버가 현재 혼잡합니다. "
                     "잠시 후 다시 생성해주세요."
                 )
+
             else:
+
                 st.error(
                     "❌ 안내문 생성 중 오류가 발생했습니다."
                 )
+
                 st.code(
                     err,
                     language="text"
@@ -1936,16 +1509,26 @@ def show_notice_generator():
 
     if st.button(
         "↩️ 처음 화면으로 돌아가기",
-        key="notice_back_unique",
+        key="notice_back_direct_reg",
         use_container_width=True
     ):
+
         st.session_state.show_notice_generator = False
         st.rerun()
 
 
+if "show_notice_generator" not in st.session_state:
+    st.session_state.show_notice_generator = False
+
 # =========================================================
 # 13. 첫 화면
 # =========================================================
+
+if st.session_state.get("show_notice_generator", False):
+
+    show_notice_generator()
+    st.stop()
+
 
 if st.session_state.get("show_notice_generator", False):
 
@@ -2020,9 +1603,28 @@ if st.session_state.selected_file is None:
 
     if st.button(
         "📄 안내문 생성",
-        key="notice_generator_home_unique",
+        key="notice_legacy_removed",
         use_container_width=True
     ):
+        st.session_state.show_notice_generator = True
+        st.rerun()
+
+
+    # -----------------------------------------------------
+    # 업무 지원
+    # -----------------------------------------------------
+
+    st.markdown(
+        '<div class="section-title">📝 업무 지원</div>',
+        unsafe_allow_html=True
+    )
+
+    if st.button(
+        "📄 안내문 생성",
+        key="notice_home_direct_reg",
+        use_container_width=True
+    ):
+
         st.session_state.show_notice_generator = True
         st.rerun()
 
