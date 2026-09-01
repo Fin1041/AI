@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 
 import os
 import re
+import xml.etree.ElementTree as ET
 import time
 import zipfile
 import tempfile
@@ -653,57 +654,83 @@ def create_hwpx(
 # 13. Gemini 안내문 문구 생성
 # =========================================================
 
+
 def generate_notice_content(
     request_text,
     subject,
     date,
     company,
     phone,
-    office
+    office,
+    regulation_context=""
 ):
     """
-    사용자의 요청을 바탕으로 안내문 제목과 본문을 생성한다.
-    단, 확인되지 않은 법 조항/의무사항은 만들어내지 않도록 한다.
+    규정집 검색 결과를 우선 근거로 사용하여
+    안내문 제목과 본문을 생성한다.
+
+    본문:
+    - 최대 5줄
+    - 일시/업체명/전화번호/관리소명 제외
+    - 건명/작업 목적/입주민 협조사항 중심
+    - 확인되지 않은 법조문/의무사항 금지
     """
 
     prompt = f"""
-너는 공동주택 관리사무소의 안내문 작성 담당 AI이다.
+너는 공동주택 관리사무소의 '안내문 작성 담당 AI'이다.
 
-사용자가 입력한 요청을 바탕으로 입주민에게 배포할
-공식 안내문을 작성한다.
+사용자가 입력한 건명과 요청사항을 바탕으로
+입주민에게 게시할 공식 안내문 제목과 본문을 작성한다.
 
 [기본 정보]
 건명: {subject}
+
 일시: {date}
 업체: {company}
 전화번호: {phone}
 관리소명: {office}
 
+※ 일시, 업체, 전화번호, 관리소명은 한글 양식의 다른 항목에 자동으로 들어가므로
+안내내용 본문에는 절대로 작성하지 않는다.
+
 [사용자 요청]
 {request_text}
 
-[작성 규칙]
-1. 제목을 1개 작성한다.
-2. 안내문 본문은 반드시 4줄 이내로 작성한다.
-3. 각 문장은 반드시 한 줄씩 줄바꿈하여 작성한다.
-4. 본문은 입주민이 이해하기 쉬운 정중한 행정문체로 작성한다.
-4. 사용자의 요청과 관련된 법령·고시·공식 기준을 고려한다.
-5. 확인되지 않은 법 조항, 법적 의무, 과태료, 처벌 등을 절대로 만들어내지 않는다.
-6. 법적 근거가 명확하지 않은 경우 "관련 유지관리 기준에 따라" 등
-   확인 가능한 범위의 표현을 사용하고 특정 조문을 임의로 적지 않는다.
-7. 본문에는 제목, 건명, 일시, 업체, 전화번호, 관리소명을 반복하지 않는다.
-8. 불필요한 인사말이나 장황한 설명은 생략한다.
-9. 결과는 아래 형식만 사용한다.
+[관련 규정집/문서 검색 결과]
+{regulation_context if regulation_context else "관련 규정집 검색 결과가 없습니다."}
 
+[가장 중요한 작성 원칙]
+1. '규정집/공식 문서 검색 결과'에 있는 내용을 최우선 근거로 사용한다.
+2. 검색 결과에 명시된 법령, 규정, 관리기준, 절차가 있으면 그 내용을
+   왜 해당 작업을 하는지 설명하는 근거로 자연스럽게 반영한다.
+3. 검색 결과에 없는 법조문 번호나 의무사항을 절대로 만들어내지 않는다.
+4. 일반 상식이나 인터넷에서 알고 있는 내용을 근거가 있는 것처럼 쓰지 않는다.
+5. 규정집에 근거가 충분하지 않으면 특정 조문을 억지로 작성하지 말고
+   '관련 유지관리 기준에 따라'와 같이 확인 가능한 수준으로 표현한다.
+6. 제목은 '건명 + 실시/시행/점검/작업 안내' 형태를 우선 사용한다.
+7. 본문에는 반드시 건명과 관련된 핵심 내용이 포함되어야 한다.
+8. 본문에는 '왜 실시하는지', '어떤 기준에 따라 관리하는지',
+   '입주민에게 필요한 협조사항'을 중심으로 작성한다.
+9. 일시, 날짜, 시간, 업체명, 전화번호, 관리소명은 본문에서 제외한다.
+10. 본문은 최대 5줄이다.
+11. 한 줄에는 한 문장만 작성한다.
+12. 문장은 짧고 명확한 행정 안내문체로 작성한다.
+13. 불필요한 인사말, 장황한 설명, AI라는 표현은 쓰지 않는다.
+14. 과장된 표현이나 법적 의무를 단정하지 않는다.
+
+[출력 형식]
 [제목]
 제목 한 줄
 
 [본문]
-5줄 이내의 안내문
+문장 1
+문장 2
+문장 3
+문장 4
+문장 5
 
 [근거]
-확인된 법령 또는 공식 기준이 있으면 1~2개만 간단히 적는다.
-확실한 근거가 없으면 "확인된 특정 법령상 의무사항 없음"이라고 적는다.
+실제로 검색 결과에서 확인된 규정/기준만 1~2개 간단히 작성한다.
+검색 결과에서 확인되지 않으면 '검색된 규정집에서 특정 조문 확인 안 됨'이라고 작성한다.
 """
 
     response = client.models.generate_content(
@@ -711,7 +738,7 @@ def generate_notice_content(
         contents=prompt
     )
 
-    text = response.text.strip()
+    text = (response.text or "").strip()
 
     title = ""
     body = ""
@@ -719,533 +746,88 @@ def generate_notice_content(
 
     if "[제목]" in text:
         after_title = text.split("[제목]", 1)[1]
+
         if "[본문]" in after_title:
-            title, after_body = after_title.split("[본문]", 1)
-            if "[근거]" in after_body:
-                body, basis = after_body.split("[근거]", 1)
-            else:
-                body = after_body
+            title, after_body = after_title.split(
+                "[본문]", 1
+            )
         else:
             title = after_title
+            after_body = ""
 
-    title = title.strip()
+        if "[근거]" in after_body:
+            body, basis = after_body.split(
+                "[근거]", 1
+            )
+        else:
+            body = after_body
+
+    title = title.strip() or f"{subject} 안내"
     body = body.strip()
     basis = basis.strip()
 
-    # 모델이 형식을 지키지 않았을 때의 안전한 fallback
-    if not title:
-        title = f"{subject} 안내"
+    # AI가 번호/불릿을 붙였을 경우 제거
+    body = re.sub(
+        r"^\s*(?:[-•·]|\d+[\.\)])\s*",
+        "",
+        body,
+        flags=re.MULTILINE
+    )
 
-    if not body:
-        body = text
-
-    # 본문 5줄 제한
+    # 빈 줄 제거
     lines = [
         line.strip()
         for line in body.splitlines()
         if line.strip()
     ]
-    body = "\n".join(lines[:5])
 
-    return title, body, basis
-
-
-
-
-def replace_hwpx_placeholders(temp_dir, replacements):
-    """HWPX 일반 placeholder 치환 함수"""
-    replaced_count = 0
-
-    for root, dirs, files in os.walk(temp_dir):
-        for filename in files:
-            if not filename.lower().endswith(".xml"):
-                continue
-
-            file_path = os.path.join(root, filename)
-
-            try:
-                xml_text = Path(file_path).read_text(encoding="utf-8")
-            except Exception:
-                continue
-
-            original_text = xml_text
-
-            for key, value in replacements.items():
-                if key == "{{안내내용}}":
-                    continue
-
-                safe_value = escape(str(value), quote=False)
-                count = xml_text.count(key)
-
-                if count:
-                    xml_text = xml_text.replace(key, safe_value)
-                    replaced_count += count
-
-            if xml_text != original_text:
-                Path(file_path).write_text(
-                    xml_text,
-                    encoding="utf-8"
-                )
-
-    return replaced_count
-
-
-
-def replace_hwpx_notice_content_as_paragraphs(
-    temp_dir,
-    notice_content
-):
-    """
-    기존 HWPX 문단을 새로 만들거나 XML 구조를 변경하지 않고,
-    템플릿에 미리 만들어 둔 5개의 문단을 그대로 재사용한다.
-
-    notice_template.hwpx의 {{안내내용}} 문단부터 이어지는 빈 문단들을
-    본문 5줄로 채운다. 따라서 HWPX 손상 가능성을 최소화한다.
-    """
-
-    lines = [
-        line.strip()
-        for line in str(notice_content).splitlines()
-        if line.strip()
-    ][:5]
-
-    if not lines:
-        return 0
-
-    for root, dirs, files in os.walk(temp_dir):
-
-        for filename in files:
-
-            if not filename.lower().endswith(".xml"):
-                continue
-
-            file_path = os.path.join(root, filename)
-
-            try:
-                xml = Path(file_path).read_text(
-                    encoding="utf-8"
-                )
-            except Exception:
-                continue
-
-            if "{{안내내용}}" not in xml:
-                continue
-
-            # placeholder paragraph와 그 뒤의 4개 paragraph를 잡는다.
-            p_pattern = re.compile(
-                r"<hp:p\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:p>"
-                r"(?:<hp:p\b[^>]*>.*?</hp:p>){4}",
-                re.DOTALL
-            )
-
-            match = p_pattern.search(xml)
-
-            if not match:
-                # 최소한 placeholder 문단 하나만 찾아본다.
-                match = re.search(
-                    r"<hp:p\b[^>]*>.*?\{\{안내내용\}\}.*?</hp:p>",
-                    xml,
-                    re.DOTALL
-                )
-
-                if not match:
-                    continue
-
-            block = match.group(0)
-
-            paragraphs = re.findall(
-                r"<hp:p\b[^>]*>.*?</hp:p>",
-                block,
-                re.DOTALL
-            )
-
-            if not paragraphs:
-                continue
-
-            new_paragraphs = []
-
-            for i, paragraph in enumerate(paragraphs):
-
-                if i < len(lines):
-                    text = escape(
-                        lines[i],
-                        quote=False
-                    )
-
-                    # 해당 문단 안의 첫 hp:t가 있으면 텍스트만 교체
-                    t_match = re.search(
-                        r"<hp:t\b[^>]*>.*?</hp:t>",
-                        paragraph,
-                        re.DOTALL
-                    )
-
-                    if t_match:
-                        new_paragraph = (
-                            paragraph[:t_match.start()]
-                            + "<hp:t>"
-                            + text
-                            + "</hp:t>"
-                            + paragraph[t_match.end():]
-                        )
-                    else:
-                        # 빈 hp:run이면 기존 charPrIDRef를 유지하면서
-                        # hp:t만 넣는다.
-                        run_match = re.search(
-                            r"<hp:run\b([^>]*)/>",
-                            paragraph
-                        )
-
-                        if run_match:
-                            attrs = run_match.group(1)
-                            run_xml = (
-                                "<hp:run"
-                                + attrs
-                                + "><hp:t>"
-                                + text
-                                + "</hp:t></hp:run>"
-                            )
-
-                            new_paragraph = (
-                                paragraph[:run_match.start()]
-                                + run_xml
-                                + paragraph[run_match.end():]
-                            )
-                        else:
-                            new_paragraph = paragraph
-
-                    new_paragraphs.append(
-                        new_paragraph
-                    )
-
-                else:
-                    # 남는 빈 문단은 원본 그대로 유지
-                    new_paragraphs.append(paragraph)
-
-            replacement = "\n".join(new_paragraphs)
-
-            new_xml = (
-                xml[:match.start()]
-                + replacement
-                + xml[match.end():]
-            )
-
-            Path(file_path).write_text(
-                new_xml,
-                encoding="utf-8"
-            )
-
-            return min(len(lines), len(paragraphs))
-
-    return 0
-
-
-def replace_hwpx_placeholders(
-    temp_dir,
-    replacements
-):
-    """일반 {{...}} 항목을 기존 XML 구조를 유지한 채 치환한다."""
-
-    replaced_count = 0
-
-    for root, dirs, files in os.walk(temp_dir):
-
-        for filename in files:
-
-            if not filename.lower().endswith(".xml"):
-                continue
-
-            file_path = os.path.join(
-                root,
-                filename
-            )
-
-            try:
-                xml_text = Path(file_path).read_text(
-                    encoding="utf-8"
-                )
-            except Exception:
-                continue
-
-            original_text = xml_text
-
-            for key, value in replacements.items():
-
-                if key == "{{안내내용}}":
-                    continue
-
-                safe_value = escape(
-                    str(value),
-                    quote=False
-                )
-
-                count = xml_text.count(key)
-
-                if count:
-                    xml_text = xml_text.replace(
-                        key,
-                        safe_value
-                    )
-                    replaced_count += count
-
-            if xml_text != original_text:
-                Path(file_path).write_text(
-                    xml_text,
-                    encoding="utf-8"
-                )
-
-    return replaced_count
-
-
-
-def create_hwpx_safely(
-    template_path,
-    output_path,
-    replacements,
-    notice_content
-):
-    """
-    실제 notice_template.hwpx의 기존 문단 구조를 사용한다.
-
-    현재 템플릿:
-      {{안내내용}} 문단 1개
-      + 빈 문단 3개
-      = 본문 4줄 영역
-
-    새 문단/줄바꿈 태그를 만들지 않고,
-    기존 hp:p와 hp:run을 그대로 유지하면서 텍스트만 넣는다.
-    """
-
-    lines = [
-        line.strip()
-        for line in str(notice_content).splitlines()
-        if line.strip()
-    ][:4]
-
-    if not lines:
-        raise RuntimeError("AI가 생성한 안내문 본문이 없습니다.")
-
-    with zipfile.ZipFile(template_path, "r") as zin:
-
-        names = zin.namelist()
-
-        if not names or names[0] != "mimetype":
-            raise RuntimeError(
-                "HWPX 템플릿의 mimetype 구조가 올바르지 않습니다."
-            )
-
-        section_name = "Contents/section0.xml"
-
-        if section_name not in names:
-            raise RuntimeError(
-                "Contents/section0.xml을 찾을 수 없습니다."
-            )
-
-        data = {
-            name: zin.read(name)
-            for name in names
-        }
-
-        xml = data[section_name].decode("utf-8")
-
-        # 일반 placeholder 치환
-        for key, value in replacements.items():
-
-            if key == "{{안내내용}}":
-                continue
-
-            xml = xml.replace(
-                key,
-                escape(str(value), quote=False)
-            )
-
-        # 모든 기존 문단 찾기
-        paragraphs = list(re.finditer(
-            r"<hp:p\b[^>]*>.*?</hp:p>",
-            xml,
-            re.DOTALL
-        ))
-
-        body_index = None
-
-        for i, m in enumerate(paragraphs):
-
-            if "{{안내내용}}" in m.group(0):
-                body_index = i
-                break
-
-        if body_index is None:
-            raise RuntimeError(
-                "템플릿에서 {{안내내용}}을 찾지 못했습니다."
-            )
-
-        targets = paragraphs[
-            body_index:body_index + 4
-        ]
-
-        if len(targets) < 4:
-            raise RuntimeError(
-                "안내내용 영역의 기존 문단이 4개 미만입니다."
-            )
-
-        # 기존 4개 문단의 위치는 유지하고 내용만 채운다.
-        pieces = []
-        cursor = 0
-
-        for i, m in enumerate(targets):
-
-            pieces.append(
-                xml[cursor:m.start()]
-            )
-
-            paragraph = m.group(0)
-
-            value = (
-                lines[i]
-                if i < len(lines)
-                else ""
-            )
-
-            safe_text = escape(
-                value,
-                quote=False
-            )
-
-            # 1) {{안내내용}} 문단처럼 hp:t가 있는 경우
-            t_match = re.search(
-                r"<hp:t\b[^>]*>.*?</hp:t>",
-                paragraph,
-                re.DOTALL
-            )
-
-            if t_match:
-
-                paragraph = (
-                    paragraph[:t_match.start()]
-                    + "<hp:t>"
-                    + safe_text
-                    + "</hp:t>"
-                    + paragraph[t_match.end():]
-                )
-
-            else:
-                # 2) 빈 기존 문단:
-                # 기존 hp:run self-closing 구조만 확장하고
-                # charPrIDRef/문단 속성/linesegarray는 그대로 유지
-                run_match = re.search(
-                    r"<hp:run\b([^>]*)/>",
-                    paragraph
-                )
-
-                if not run_match:
-                    raise RuntimeError(
-                        "본문용 빈 문단의 기존 hp:run 구조를 "
-                        "찾지 못했습니다."
-                    )
-
-                attrs = run_match.group(1)
-
-                run_xml = (
-                    "<hp:run"
-                    + attrs
-                    + "><hp:t>"
-                    + safe_text
-                    + "</hp:t></hp:run>"
-                )
-
-                paragraph = (
-                    paragraph[:run_match.start()]
-                    + run_xml
-                    + paragraph[run_match.end():]
-                )
-
-            pieces.append(paragraph)
-            cursor = m.end()
-
-        pieces.append(
-            xml[cursor:]
+    # AI가 줄바꿈 없이 반환한 경우 문장 단위로 분리
+    if len(lines) == 1:
+        one = lines[0]
+
+        # 일반적인 한국어 문장 종결 뒤에서 분리
+        one = re.sub(
+            r"([다요함됨임])\.\s+",
+            r"\1.\n",
+            one
         )
 
-        xml = "".join(pieces)
+        lines = [
+            x.strip()
+            for x in one.splitlines()
+            if x.strip()
+        ]
 
-        # XML 자체 검증
-        try:
-            ET.fromstring(xml)
-        except ET.ParseError as e:
-            raise RuntimeError(
-                "수정된 HWPX XML 검증 실패: "
-                + str(e)
-            ) from e
+    # 본문에 들어가면 안 되는 정보 제거
+    forbidden_patterns = [
+        date,
+        company,
+        phone,
+        office,
+    ]
 
-        data[section_name] = xml.encode("utf-8")
+    cleaned = []
 
-        # 원본 ZIP 엔트리 순서를 그대로 유지
-        with zipfile.ZipFile(
-            output_path,
-            "w"
-        ) as zout:
+    for line in lines:
 
-            for name in names:
+        line = line.strip()
 
-                info = zin.getinfo(name)
+        if not line:
+            continue
 
-                new_info = zipfile.ZipInfo(
-                    filename=info.filename,
-                    date_time=info.date_time
-                )
+        # 입력값 전체가 들어간 경우 제거
+        if any(
+            p and p.strip() in line
+            for p in forbidden_patterns
+        ):
+            continue
 
-                new_info.compress_type = (
-                    zipfile.ZIP_STORED
-                    if name == "mimetype"
-                    else info.compress_type
-                )
+        cleaned.append(line)
 
-                new_info.comment = info.comment
-                new_info.extra = info.extra
-                new_info.create_system = info.create_system
-                new_info.create_version = info.create_version
-                new_info.extract_version = info.extract_version
-                new_info.flag_bits = info.flag_bits
+    # 최대 5줄
+    body = "\n".join(cleaned[:5])
 
-                zout.writestr(
-                    new_info,
-                    data[name]
-                )
-
-    # ZIP/HWPX 무결성 검사
-    with zipfile.ZipFile(
-        output_path,
-        "r"
-    ) as check:
-
-        bad = check.testzip()
-
-        if bad is not None:
-            raise RuntimeError(
-                "생성된 HWPX ZIP 검증 실패: " + bad
-            )
-
-        if check.namelist()[0] != "mimetype":
-            raise RuntimeError(
-                "생성된 HWPX mimetype 위치 오류"
-            )
-
-        if check.read("mimetype") != b"application/hwp+zip":
-            raise RuntimeError(
-                "생성된 HWPX mimetype 값 오류"
-            )
-
-        # section XML 최종 파싱
-        final_xml = check.read(section_name).decode("utf-8")
-
-        try:
-            ET.fromstring(final_xml)
-        except ET.ParseError as e:
-            raise RuntimeError(
-                "최종 HWPX section XML 파싱 실패: "
-                + str(e)
-            ) from e
-
-    return output_path
+    return title, body, basis
 
 # =========================================================
 # 14. 안내문 생성 화면
@@ -1368,6 +950,35 @@ if st.session_state.show_notice_generator:
                     "🤖 관련 기준을 검토하고 안내문을 작성하고 있습니다..."
                 ):
 
+                    # 선택된 규정집에서 건명/요청사항과 관련된 내용을 검색
+                    selected_doc = st.session_state.get(
+                        "selected_document"
+                    )
+
+                    if not selected_doc:
+                        raise RuntimeError(
+                            "안내문 생성에 사용할 규정집이 선택되지 않았습니다."
+                        )
+
+                    regulation_results = search_documents(
+                        query=f"{subject} {request_text}",
+                        selected_filename=st.session_state.selected_document,
+                        top_k=8
+                    )
+
+                    regulation_context_parts = []
+
+                    for result in regulation_results:
+                        regulation_context_parts.append(
+                            f"[문서명] {result.get('filename', '')}\n"
+                            f"[페이지] {result.get('page', '')}\n"
+                            f"[내용]\n{result.get('text', '')}"
+                        )
+
+                    regulation_context = "\n\n".join(
+                        regulation_context_parts
+                    )
+
                     title, notice_content, basis = (
                         generate_notice_content(
                             request_text=request_text,
@@ -1375,7 +986,8 @@ if st.session_state.show_notice_generator:
                             date=date,
                             company=company,
                             phone=phone,
-                            office=office
+                            office=office,
+                            regulation_context=regulation_context
                         )
                     )
 
@@ -1478,7 +1090,7 @@ if st.session_state.show_notice_generator:
                 st.info(
                     "GitHub의 templates/notice_template.hwpx가 "
                     "원본 템플릿인지 확인해주세요. "
-                    "{{안내내용}}과 본문용 빈 문단 5개가 필요합니다."
+                    "{{안내내용}}과 본문용 기존 문단 4개가 필요합니다."
                 )
 
     st.markdown("")
