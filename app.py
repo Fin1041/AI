@@ -386,7 +386,7 @@ if "show_notice_generator" not in st.session_state:
 
 
 st.markdown(
-    '<div class="top-title">🏠 대구경북지사 기술업무 AI 챗봇 🤖</div>',
+    '<div class="top-title">🏠 대구경북지사 AI 챗봇 🤖</div>',
     unsafe_allow_html=True
 )
 
@@ -871,8 +871,9 @@ def generate_notice_text_with_law(
 8. 확인되지 않은 조문번호는 절대 작성하지 않는다.
 9. 일시·날짜·업체명·전화번호·관리소명은 본문에서 제외한다.
 10. 어려운 법률 표현은 줄이고 입주민이 이해하기 쉽게 쓴다.
-11. 같은 내용 반복 금지.
-12. 본문은 반드시 5줄 이내다.
+11. 안내내용의 마지막 줄은 제목의 내용과 관련하여 입주민들에게 협조, 양해, 알림, 공지, 등의 문구등을 사용해서 전달한다. 
+12. 같은 내용 반복 금지.
+13. 본문은 반드시 5줄 이내다.
 
 [출력]
 [제목]
