@@ -18,6 +18,7 @@ import html
 import urllib.request
 import json
 import io
+from pypdf import PdfReader
 
 
 # =========================================================
@@ -726,7 +727,7 @@ def download_hwpx_template(url):
 
     try:
         with zipfile.ZipFile(
-            __import__("io").BytesIO(data),
+            BytesIO(data),
             "r"
         ) as z:
             names = z.namelist()
@@ -783,7 +784,7 @@ def load_plan_pdf_pages():
 
     try:
         reader = PdfReader(
-            __import__("io").BytesIO(data)
+            BytesIO(data)
         )
     except Exception as e:
         raise RuntimeError(
