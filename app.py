@@ -1290,11 +1290,13 @@ def show_notice_generator():
 
     notice_date = st.text_input(
         "① 공고일자",
+        placeholder="예: 2026년 9월 1일",
         key="notice_date_direct_reg"
     )
 
     notice_deadline = st.text_input(
         "② 공고기한",
+        placeholder="예: 2026년 9월 10일까지",
         key="notice_deadline_direct_reg"
     )
 
@@ -1306,29 +1308,33 @@ def show_notice_generator():
 
     work_date = st.text_input(
         "④ 일시",
+        placeholder="예: 2026년 9월 10일 09:00~17:00",
         key="notice_work_date_direct_reg"
     )
 
     company = st.text_input(
         "⑤ 업체",
+        placeholder="예: ○○설비",
         key="notice_company_direct_reg"
     )
 
     phone = st.text_input(
         "⑥ 전화번호",
+        placeholder="예: 053-123-4567",
         key="notice_phone_direct_reg"
     )
 
     office = st.text_input(
         "⑦ 관리소명",
+        placeholder="예: ○○관리소",
         key="notice_office_direct_reg"
     )
 
     request_text = st.text_area(
         "⑧ 안내문 요청",
         placeholder=(
-            "예: 보일러 세관에 대한 안내문을 "
-            "관련 규정 중심으로 작성해줘"
+            "예: 보일러 세관에 대한 안내문을 작성해줘. "
+            "관련 규정이 있으면 안내내용에 함께 넣어줘."
         ),
         height=110,
         key="notice_request_direct_reg"
