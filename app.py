@@ -1481,16 +1481,16 @@ if st.session_state.selected_file is None:
         unsafe_allow_html=True
     )
 
-    if st.button(
-        "📄 안내문 생성",
-        key="notice_home_direct_reg",
-        use_container_width=True
-    ):
+    # -----------------------------------------------------
+    # 업무 지원
+    # -----------------------------------------------------
 
-        st.session_state.show_notice_generator = True
-        st.rerun()
+    st.markdown(
+        '<div class="section-title">📝 업무 지원</div>',
+        unsafe_allow_html=True
+    )
 
-
+    # -----------------------------------------------------
     # -----------------------------------------------------
     # 업무 지원
     # -----------------------------------------------------
@@ -1502,14 +1502,13 @@ if st.session_state.selected_file is None:
 
     if st.button(
         "📄 안내문 생성",
-        key="notice_home_law",
+        key="notice_home_only",
         use_container_width=True
     ):
         st.session_state.show_notice_generator = True
         st.rerun()
 
 
-    # -----------------------------------------------------
     # 규정집 선택
     # -----------------------------------------------------
 
