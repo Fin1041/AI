@@ -751,6 +751,45 @@ def generate_notice_content(
 
 
 
+
+def replace_hwpx_placeholders(temp_dir, replacements):
+    """HWPX 일반 placeholder 치환 함수"""
+    replaced_count = 0
+
+    for root, dirs, files in os.walk(temp_dir):
+        for filename in files:
+            if not filename.lower().endswith(".xml"):
+                continue
+
+            file_path = os.path.join(root, filename)
+
+            try:
+                xml_text = Path(file_path).read_text(encoding="utf-8")
+            except Exception:
+                continue
+
+            original_text = xml_text
+
+            for key, value in replacements.items():
+                if key == "{{안내내용}}":
+                    continue
+
+                safe_value = escape(str(value), quote=False)
+                count = xml_text.count(key)
+
+                if count:
+                    xml_text = xml_text.replace(key, safe_value)
+                    replaced_count += count
+
+            if xml_text != original_text:
+                Path(file_path).write_text(
+                    xml_text,
+                    encoding="utf-8"
+                )
+
+    return replaced_count
+
+
 def replace_hwpx_notice_content_as_paragraphs(
     temp_dir,
     notice_content
