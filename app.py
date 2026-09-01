@@ -762,6 +762,7 @@ def _gemini_notice_request(prompt):
 
 
 
+
 def generate_notice_text(
     request_text,
     subject,
@@ -772,13 +773,16 @@ def generate_notice_text(
     regulation_context=""
 ):
     """
-    제목 15자 이내, 안내내용 최대 7문장.
-    규정집에 근거가 있으면 본문에 자연스럽게 규정/기준을 포함한다.
-    일시/업체/전화번호/관리소명은 본문에서 제외한다.
+    안내문 생성 규칙:
+    - 제목 15자 이하
+    - 본문 무조건 최대 5줄
+    - 한 줄 20~25글자 정도를 목표
+    - 일시/업체/전화/관리소명은 본문 제외
+    - 관련 규정이 있으면 1줄 정도로 간단히 반영
     """
 
     prompt = f"""
-너는 공동주택 관리사무소의 공식 안내문 작성 담당자이다.
+너는 공동주택 관리사무소의 안내문 작성 담당자이다.
 
 [건명]
 {subject}
@@ -787,58 +791,56 @@ def generate_notice_text(
 {request_text}
 
 [관련 규정집 검색 결과]
-{regulation_context if regulation_context else "검색된 관련 규정이 없습니다."}
-
-[기타 입력 정보]
-일시: {date_value}
-업체: {company}
-전화번호: {phone}
-관리소명: {office}
+{regulation_context if regulation_context else "관련 규정이 검색되지 않았습니다."}
 
 [작성 규칙]
 1. 제목은 반드시 15자 이내로 작성한다.
-2. 제목에는 건명의 핵심어를 넣는다.
-3. 안내내용은 최대 7문장으로 작성한다.
-4. 각 문장은 반드시 한 줄씩 작성한다.
-5. 건명과 직접 관련된 내용만 작성한다.
-6. 규정집 검색 결과에 관련 규정·기준이 있으면 안내내용 안에
-   해당 규정 또는 기준의 명칭/핵심 내용을 1~2문장 정도 자연스럽게 반영한다.
-7. 규정집에 없는 법조문 번호나 의무사항은 절대 만들지 않는다.
-8. 규정 근거가 없는 경우 특정 법조문을 임의로 추가하지 않는다.
-9. 일시, 날짜, 업체명, 전화번호, 관리소명은 안내내용에 절대 넣지 않는다.
-10. 입주민이 이해하기 쉬운 정중한 행정문체로 작성한다.
-11. 불필요한 인사말과 장황한 설명은 생략한다.
-12. 마지막 문장은 필요한 경우 입주민의 협조를 요청한다.
-13. 규정 근거는 본문 흐름을 해치지 않게 작성한다.
+2. 제목은 건명의 핵심어를 포함한다.
+3. 안내내용은 반드시 5줄 이내로 작성한다.
+4. 가능하면 정확히 4~5줄로 작성한다.
+5. 한 줄은 공백을 제외하고 20~25글자 정도를 목표로 한다.
+6. 한 줄이 너무 길어지면 문장을 짧게 다시 작성한다.
+7. 문장마다 반드시 줄바꿈한다.
+8. 내용은 "무엇을 하는지 → 왜 하는지 → 입주민 협조" 중심으로 간단히 작성한다.
+9. 관련 규정이 검색된 경우 규정명 또는 핵심 기준을 1줄 이내로 짧게 포함한다.
+10. 규정이 없으면 법조문을 절대로 만들어내지 않는다.
+11. 일시, 날짜, 업체명, 전화번호, 관리소명은 안내내용에 절대 넣지 않는다.
+12. 어려운 법률용어와 장황한 설명은 줄인다.
+13. 같은 내용의 반복을 금지한다.
+14. 입주민이 한눈에 읽을 수 있는 쉬운 문장으로 작성한다.
+15. 본문에서 괄호, 불릿, 번호는 사용하지 않는다.
 
 [출력 형식]
 [제목]
 15자 이내 제목
 
 [본문]
-문장 1
-문장 2
-문장 3
-문장 4
-문장 5
-문장 6
-문장 7
+20~25글자 정도의 문장 1
+20~25글자 정도의 문장 2
+20~25글자 정도의 문장 3
+20~25글자 정도의 문장 4
+20~25글자 정도의 문장 5
 
 [근거]
-검색 결과에서 실제 확인된 규정/기준만 간단히 작성한다.
+규정이 확인된 경우 짧게 1줄로 작성
 """
 
     text = None
     last_error = None
 
     for attempt in range(5):
+
         try:
+
             response = client.models.generate_content(
                 model="gemini-3.1-flash-lite",
                 contents=prompt
             )
 
-            text = (response.text or "").strip()
+            text = (
+                response.text
+                or ""
+            ).strip()
 
             if text:
                 break
@@ -846,21 +848,27 @@ def generate_notice_text(
             last_error = "Gemini 빈 응답"
 
         except Exception as e:
+
             last_error = e
             upper = str(e).upper()
 
-            if not (
+            temporary = (
                 "503" in upper
                 or "UNAVAILABLE" in upper
                 or "429" in upper
                 or "RESOURCE_EXHAUSTED" in upper
-            ):
+            )
+
+            if not temporary:
                 raise
 
             if attempt < 4:
-                time.sleep(2 ** attempt)
+                time.sleep(
+                    2 ** attempt
+                )
 
     if not text:
+
         raise RuntimeError(
             "Gemini 서버가 현재 응답하지 않습니다. "
             f"마지막 오류: {last_error}"
@@ -871,16 +879,32 @@ def generate_notice_text(
     basis = ""
 
     if "[제목]" in text:
-        rest = text.split("[제목]", 1)[1]
+
+        rest = text.split(
+            "[제목]",
+            1
+        )[1]
 
         if "[본문]" in rest:
-            title, rest = rest.split("[본문]", 1)
+
+            title, rest = rest.split(
+                "[본문]",
+                1
+            )
 
             if "[근거]" in rest:
-                body, basis = rest.split("[근거]", 1)
+
+                body, basis = rest.split(
+                    "[근거]",
+                    1
+                )
+
             else:
+
                 body = rest
+
         else:
+
             title = rest
 
     title = re.sub(
@@ -895,7 +919,7 @@ def generate_notice_text(
             or "안내문"
         )[:15]
 
-    # 본문 줄 정리
+    # 본문 정리
     body = re.sub(
         r"^\s*(?:[-•·]|\d+[\.\)])\s*",
         "",
@@ -903,39 +927,44 @@ def generate_notice_text(
         flags=re.MULTILINE
     )
 
-    body_lines = [
+    lines = [
         line.strip()
         for line in body.splitlines()
         if line.strip()
     ]
 
-    # 한 줄로 반환한 경우 문장부호 뒤에서 분리
-    if len(body_lines) == 1:
-        one = body_lines[0]
+    # 한 줄로 반환된 경우 문장 단위로 분리
+    if len(lines) == 1:
 
-        # 한국어 종결 표현을 폭넓게 처리
+        one = lines[0]
+
         one = re.sub(
             r"(?<=[다요함됨임])\.\s+",
             ".\n",
             one
         )
 
-        body_lines = [
+        lines = [
             x.strip()
             for x in one.splitlines()
             if x.strip()
         ]
 
-    # 본문에 들어가면 안 되는 직접 입력값 제거
+    # 본문에 들어가면 안 되는 값 제거
     forbidden = [
-        str(v).strip()
-        for v in [date_value, company, phone, office]
-        if str(v).strip()
+        str(value).strip()
+        for value in [
+            date_value,
+            company,
+            phone,
+            office
+        ]
+        if str(value).strip()
     ]
 
-    clean = []
+    cleaned = []
 
-    for line in body_lines:
+    for line in lines:
 
         if any(
             value in line
@@ -943,13 +972,46 @@ def generate_notice_text(
         ):
             continue
 
-        clean.append(line)
+        cleaned.append(line)
 
-    body = "\n".join(clean[:7])
+    # 최대 5줄
+    cleaned = cleaned[:5]
+
+    # 한 줄이 지나치게 긴 경우 간단한 접속어를 기준으로 분리
+    final_lines = []
+
+    for line in cleaned:
+
+        if len(line.replace(" ", "")) <= 28:
+
+            final_lines.append(line)
+
+        else:
+
+            parts = re.split(
+                r"(?:,\s*|,\s*그리고\s*|하며\s+|하여\s+|및\s+)",
+                line
+            )
+
+            parts = [
+                p.strip()
+                for p in parts
+                if p.strip()
+            ]
+
+            for part in parts:
+
+                if len(part.replace(" ", "")) <= 30:
+                    final_lines.append(part)
+
+    # 다시 최대 5줄
+    final_lines = final_lines[:5]
+
+    body = "\n".join(
+        final_lines
+    )
 
     return title, body, basis
-
-
 
 def generate_notice_content(
     request_text,
