@@ -663,10 +663,10 @@ def search_documents(
 
 
 # ---------------------------------------------------------
-# GitHub 규정집/양식 설정
-# Streamlit Cloud → Settings → Secrets에서 설정 권장
-#
-# GITHUB_USERNAME = "Fin1041"
+# GitHub 설정
+# ---------------------------------------------------------
+
+GITHUB_USERNAME = "Fin1041"
 GITHUB_REPOSITORY = "AI"
 GITHUB_BRANCH = "main"
 
@@ -692,10 +692,6 @@ HWPX_TEMPLATE_URLS = [
 
 
 def _github_headers():
-    return {
-        "User-Agent": "house-management-notice-app"
-    }
-def _github_headers():
     headers = {
         "User-Agent": "house-management-notice-app"
     }
@@ -709,25 +705,12 @@ def _github_headers():
 
 
 @st.cache_data(ttl=3600)
-
-@st.cache_data(ttl=3600)
 def _get_plan_file_urls():
-    """
-    GitHub의 단일 규정집 templates/plan.pdf만 사용한다.
-    """
-    if not GITHUB_USERNAME or not GITHUB_REPOSITORY:
-        return []
-
-    url = (
-        f"https://raw.githubusercontent.com/"
-        f"{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/"
-        f"{GITHUB_BRANCH}/{PLAN_PDF_PATH}"
-    )
-
+    """GitHub의 templates/plan.pdf 단일 규정집 URL."""
     return [
         {
             "name": "plan.pdf",
-            "url": url
+            "url": _github_raw_url(PLAN_PDF_PATH)
         }
     ]
 
