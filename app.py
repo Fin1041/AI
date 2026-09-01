@@ -1593,24 +1593,6 @@ if st.session_state.selected_file is None:
 
 
     # -----------------------------------------------------
-    # 안내문 생성
-    # -----------------------------------------------------
-
-    st.markdown(
-        '<div class="section-title">📝 업무 지원</div>',
-        unsafe_allow_html=True
-    )
-
-    if st.button(
-        "📄 안내문 생성",
-        key="notice_legacy_removed",
-        use_container_width=True
-    ):
-        st.session_state.show_notice_generator = True
-        st.rerun()
-
-
-    # -----------------------------------------------------
     # 업무 지원
     # -----------------------------------------------------
 
