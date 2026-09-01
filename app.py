@@ -761,6 +761,26 @@ def _gemini_notice_request(prompt):
     )
 
 
+def generate_notice_text(
+    request_text,
+    subject,
+    date_value,
+    company,
+    phone,
+    office,
+    regulation_context=""
+):
+    return generate_notice_content(
+        request_text=request_text,
+        subject=subject,
+        date_value=date_value,
+        company=company,
+        phone=phone,
+        office=office,
+        regulation_context=regulation_context
+    )
+
+
 def generate_notice_content(
     request_text,
     subject,
