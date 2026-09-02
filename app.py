@@ -702,63 +702,45 @@ def _github_download(url):
         return response.read()
 
 
-def download_notice_template():
-    data = _github_download(
-        HWPX_TEMPLATE_URL
-    )
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_notice_template_bytes():
+    """
+    GitHub의 HWPX 양식을 1시간 캐시한다.
+    안내문을 만들 때마다 다시 다운로드하지 않도록 해 속도를 높인다.
+    """
+    data = _github_download(HWPX_TEMPLATE_URL)
 
     try:
-        with zipfile.ZipFile(
-            __import__("io").BytesIO(data),
-            "r"
-        ) as z:
+        with zipfile.ZipFile(__import__("io").BytesIO(data), "r") as z:
             names = z.namelist()
-
             if not names or names[0] != "mimetype":
                 raise RuntimeError(
                     "notice_template.hwpx가 정상적인 HWPX가 아닙니다."
                 )
-
             if z.read("mimetype") != b"application/hwp+zip":
                 raise RuntimeError(
                     "HWPX mimetype이 올바르지 않습니다."
                 )
-
             if "Contents/section0.xml" not in names:
                 raise RuntimeError(
                     "HWPX의 section0.xml을 찾지 못했습니다."
                 )
-
-            section = z.read(
-                "Contents/section0.xml"
-            ).decode("utf-8")
-
-            # 새 양식은 반드시 안내내용1~5를 사용
+            section = z.read("Contents/section0.xml").decode("utf-8")
             for i in range(1, 6):
                 if f"{{{{안내내용{i}}}}}" not in section:
                     raise RuntimeError(
-                        f"notice_template.hwpx에 "
-                        f"{{{{안내내용{i}}}}}이 없습니다."
+                        f"notice_template.hwpx에 {{{{안내내용{i}}}}}이 없습니다."
                     )
-
     except zipfile.BadZipFile as e:
         raise RuntimeError(
             "GitHub에서 받은 notice_template.hwpx가 손상되었습니다."
         ) from e
 
-    f = tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=".hwpx"
-    )
+    return data
 
-    try:
-        f.write(data)
-        f.flush()
-    finally:
-        f.close()
 
-    return f.name
-
+def download_notice_template():
+    data = get_notice_template_bytes()
 
 def search_official_law_with_ai(
     subject,
@@ -775,32 +757,19 @@ def search_official_law_with_ai(
     law_prompt = f"""
 너는 공동주택 관리사무소의 법령 근거 확인 담당자다.
 
-건명:
-{subject}
+건명: {subject}
+요청: {request_text}
 
-요청:
-{request_text}
+현행 대한민국 법령을 대상으로 안내문에 넣을 수 있는 근거를 판단한다.
+law.go.kr 기준을 우선하되, 실제 확인하지 못한 법령명·조문번호·시행일은 쓰지 않는다.
+근거가 확실하지 않으면 반드시 '근거 미확인'으로 표시한다.
+확인된 경우 법령명, 조문번호, 핵심근거만 짧게 작성한다.
 
-목적:
-안내문에 넣을 수 있는 실제 법령 또는 공식 기준 근거가 있는지 확인한다.
-
-반드시 지켜라.
-1. 대한민국 현행 법령만 대상으로 한다.
-2. 공식 법령 출처는 국가법령정보센터(law.go.kr)를 우선한다.
-3. 실제 확인하지 못한 법률명, 조문번호, 시행일은 절대 만들어내지 않는다.
-4. 관련 근거가 확실하지 않으면 '근거 미확인'이라고 답한다.
-5. 근거가 확인되면 법령명과 조문번호, 안내문에 사용할 수 있는 핵심 취지만 짧게 작성한다.
-6. 안내문 본문에 넣을 수 있는 쉬운 한국어로 요약한다.
-
-출력 형식:
+출력:
 [법령명]
-...
 [조문]
-...
 [핵심근거]
-...
-[확인상태]
-확인 / 근거 미확인
+[확인상태] 확인 / 근거 미확인
 """
 
     last_error = None
@@ -852,41 +821,19 @@ def generate_notice_text_with_law(
     """
 
     prompt = f"""
-너는 공동주택 관리사무소의 공식 안내문 작성 담당자이다.
+너는 공동주택 관리사무소의 공식 안내문 작성 담당자다.
 
-[건명]
-{subject}
+건명: {subject}
+요청: {request_text}
+법령 근거: {law_context if law_context else "확인된 법령 근거 없음"}
 
-[사용자 요청]
-{request_text}
+규칙: 제목 15자 이하, 본문 최대 5줄. 각 줄은 짧고 읽기 쉽게 작성한다. 건명→필요성→법령근거→협조사항 순으로 구성한다. 확인된 법령만 사용하고 조문을 임의로 만들지 않는다. 일시·업체·전화번호·관리소명은 본문에서 반복하지 않는다.
 
-[공식 법령 근거 확인 결과]
-{law_context if law_context else "확인된 법령 근거 없음"}
-
-[작성 규칙]
-1. 제목은 15자 이하.
-2. 안내내용은 무조건 5줄 이내.
-3. 각 줄은 짧고 읽기 쉽게 작성한다.
-4. 한 줄은 공백 제외 약 20~25글자를 목표로 한다.
-5. 건명 → 목적/필요성 → 법령근거 → 협조사항 순으로 작성한다.
-6. 실제 확인된 법령 근거가 있으면 반드시 한 줄에 직접 포함한다.
-7. 법령명과 조문번호는 확인된 경우에만 쓴다.
-8. 확인되지 않은 조문번호는 절대 작성하지 않는다.
-9. 일시·날짜·업체명·전화번호·관리소명은 본문에서 제외한다.
-10. 어려운 법률 표현은 줄이고 입주민이 이해하기 쉽게 쓴다.
-11. 같은 내용 반복 금지.
-12. 본문은 반드시 5줄 이내다.
-
-[출력]
+출력:
 [제목]
 15자 이하
-
 [본문]
-문장1
-문장2
-문장3
-문장4
-문장5
+최대 5줄
 """
 
     for attempt in range(3):
