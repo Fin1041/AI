@@ -742,6 +742,21 @@ def get_notice_template_bytes():
 def download_notice_template():
     data = get_notice_template_bytes()
 
+    # get_notice_template_bytes()는 HWPX의 "바이트"를 반환하므로
+    # create_notice_hwpx()에서 zipfile로 열 수 있도록 실제 임시파일로 저장한다.
+    temp_file = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".hwpx"
+    )
+
+    try:
+        temp_file.write(data)
+        temp_file.flush()
+    finally:
+        temp_file.close()
+
+    return temp_file.name
+
 def search_official_law_with_ai(
     subject,
     request_text
