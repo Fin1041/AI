@@ -1073,9 +1073,18 @@ def create_notice_hwpx(
                 safe_label = ""
                 safe_value = ""
 
-            # 같은 문단 안의 placeholder 두 개만 해당 순서대로 치환
-            new_paragraph = paragraph.replace("{{항목명}}", safe_label, 1)
-            new_paragraph = new_paragraph.replace("{{입력내용}}", safe_value, 1)
+            # 같은 문단의 두 placeholder를
+            # "1. 항목명 : 입력내용" 형식으로 표시한다.
+            if label and value:
+                display_text = f"{idx + 1}. {label} : {value}"
+                safe_display = html.escape(display_text, quote=False)
+                new_paragraph = paragraph.replace("{{항목명}} {{입력내용}}", safe_display, 1)
+                new_paragraph = new_paragraph.replace("{{항목명}}", safe_label, 1)
+                new_paragraph = new_paragraph.replace("{{입력내용}}", safe_value, 1)
+            else:
+                # 입력하지 않은 행은 실제 표시가 남지 않도록 완전히 비운다.
+                new_paragraph = paragraph.replace("{{항목명}}", "", 1)
+                new_paragraph = new_paragraph.replace("{{입력내용}}", "", 1)
 
             # 원본 xml에서 뒤쪽부터 바꿔 위치가 틀어지지 않도록
             # 치환 대상 5개를 뒤에서부터 적용한다.
@@ -1391,6 +1400,24 @@ def show_notice_generator():
                 for line in body_lines
             )
 
+            safe_fields = "<br>".join(
+                html.escape(f"{idx}. {label} : {value}")
+                for idx, (label, value) in enumerate(custom_fields, start=1)
+            )
+
+            fields_block = ""
+            if safe_fields:
+                fields_block = f"""
+                <div class="welcome-title" style="margin-top:8px;">항목</div>
+                <div style="font-size:14px;
+                line-height:2.0;
+                color:#334b64;
+                margin-top:8px;
+                margin-bottom:18px;">
+                {safe_fields}
+                </div>
+                """
+
             st.markdown(
                 f"""
                 <div class="welcome-card">
@@ -1399,6 +1426,8 @@ def show_notice_generator():
                 color:#243c56;margin-bottom:18px;">
                 {safe_title}
                 </div>
+
+                {fields_block}
 
                 <div class="welcome-title">안내내용</div>
                 <div style="font-size:14px;
