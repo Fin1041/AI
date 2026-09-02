@@ -134,35 +134,38 @@ st.markdown(
     }
 
     /* 실제 클릭 버튼을 참고 이미지의 흰색 메뉴 카드로 */
-    .home-screen .stButton { margin:0 0 10px 0; }
+    .home-screen .stButton { margin:0 0 6px 0; }
     .home-screen .stButton > button {
-        min-height:82px !important;
-        height:auto !important;
-        padding:12px 15px !important;
+        min-height:48px !important;
+        height:48px !important;
+        padding:8px 15px !important;
         border-radius:15px !important;
         border:1px solid #d6e1eb !important;
         background:#ffffff !important;
         color:#1d3551 !important;
-        box-shadow:0 4px 11px rgba(37,74,108,.08) !important;
+        box-shadow:0 3px 10px rgba(37,74,108,.07) !important;
         transform:none !important;
         text-align:left !important;
     }
     .home-screen .stButton > button:hover {
         background:#ffffff !important;
         transform:translateY(-1px) !important;
-        box-shadow:0 6px 14px rgba(37,74,108,.12) !important;
+        box-shadow:0 5px 13px rgba(37,74,108,.11) !important;
     }
     .home-screen .stButton > button p {
-        white-space:pre-line !important;
-        line-height:1.45 !important;
-        font-size:13px !important;
-        color:#526579 !important;
+        white-space:nowrap !important;
+        line-height:1.2 !important;
+        font-size:16px !important;
+        font-weight:800 !important;
+        color:#1d3551 !important;
         margin:0 !important;
     }
-    .home-screen .stButton > button p::first-line {
-        font-size:18px;
-        font-weight:800;
-        color:#1d3551;
+    .home-menu-desc {
+        margin:-1px 7px 12px 7px;
+        color:#30445c;
+        font-size:12px;
+        line-height:1.45;
+        letter-spacing:-0.35px;
     }
 
     @media (max-width:760px) {
@@ -185,7 +188,8 @@ st.markdown(
         .home-circle { width:50px; height:50px; min-width:50px; font-size:27px; }
         .home-panel-title { font-size:22px; }
         .home-panel-desc { font-size:12px; }
-        .home-screen .stButton > button { min-height:76px !important; }
+        .home-screen .stButton > button { min-height:46px !important; height:46px !important; }
+        .home-menu-desc { font-size:11px; margin-bottom:10px; }
     }
     </style>
     """,
@@ -1364,17 +1368,27 @@ if st.session_state.selected_file is None:
             )
 
             if st.button(
-                "📄  안내문 작성\n입력한 내용을 바탕으로 안내문을 작성합니다.    ›",
+                "📄  안내문 작성   ›",
                 key="home_notice_menu",
                 use_container_width=True
             ):
                 st.session_state.show_notice_generator = True
                 st.rerun()
 
+            st.markdown(
+                '<div class="home-menu-desc">입력한 내용을 바탕으로 안내문을 작성합니다.</div>',
+                unsafe_allow_html=True
+            )
+
             st.button(
-                "💬  기타 업무지원\n추가 업무지원 기능을 제공합니다.    ›",
+                "💬  기타 업무지원   ›",
                 key="home_other_support",
                 use_container_width=True
+            )
+
+            st.markdown(
+                '<div class="home-menu-desc">추가 업무지원 기능을 제공합니다.</div>',
+                unsafe_allow_html=True
             )
 
         with col2:
@@ -1393,20 +1407,30 @@ if st.session_state.selected_file is None:
             )
 
             if st.button(
-                "🏢  시설업무\n시설·기계·전기 등 기술 관련 규정집을 확인합니다.    ›",
+                "🏢  시설업무   ›",
                 key="rule_category_facility",
                 use_container_width=True
             ):
                 st.session_state.rulebook_category = "시설업무"
                 st.rerun()
 
+            st.markdown(
+                '<div class="home-menu-desc">시설·기계·전기 등 기술 관련 규정집을 확인합니다.</div>',
+                unsafe_allow_html=True
+            )
+
             if st.button(
-                "📋  행정업무\n행정·인사·예산·평가 등 행정 관련 규정집을 확인합니다.    ›",
+                "📋  행정업무   ›",
                 key="rule_category_admin",
                 use_container_width=True
             ):
                 st.session_state.rulebook_category = "행정업무"
                 st.rerun()
+
+            st.markdown(
+                '<div class="home-menu-desc">행정·인사·예산·평가 등 행정 관련 규정집을 확인합니다.</div>',
+                unsafe_allow_html=True
+            )
 
         st.markdown('</div></div>', unsafe_allow_html=True)
 
