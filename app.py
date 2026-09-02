@@ -378,6 +378,9 @@ if "messages" not in st.session_state:
 if "show_notice_generator" not in st.session_state:
     st.session_state.show_notice_generator = False
 
+if "rulebook_category" not in st.session_state:
+    st.session_state.rulebook_category = None
+
 
 # =========================================================
 # 4. 상단 화면
@@ -386,7 +389,7 @@ if "show_notice_generator" not in st.session_state:
 
 
 st.markdown(
-    '<div class="top-title">🏠 대구경북지사 AI 챗봇 🤖</div>',
+    '<div class="top-title">🏠 대구경북지사 기술업무 AI 챗봇 🤖</div>',
     unsafe_allow_html=True
 )
 
@@ -871,9 +874,8 @@ def generate_notice_text_with_law(
 8. 확인되지 않은 조문번호는 절대 작성하지 않는다.
 9. 일시·날짜·업체명·전화번호·관리소명은 본문에서 제외한다.
 10. 어려운 법률 표현은 줄이고 입주민이 이해하기 쉽게 쓴다.
-11. 안내내용의 마지막 줄은 제목의 내용과 관련하여 입주민들에게 협조, 양해, 알림, 공지, 등의 문구등을 사용해서 전달한다. 
-12. 같은 내용 반복 금지.
-13. 본문은 반드시 5줄 이내다.
+11. 같은 내용 반복 금지.
+12. 본문은 반드시 5줄 이내다.
 
 [출력]
 [제목]
@@ -966,9 +968,7 @@ def create_notice_hwpx(
     lines,
     notice_date,
     notice_deadline,
-    subject,
-    work_date,
-    company,
+    custom_fields,
     phone,
     office
 ):
@@ -1000,9 +1000,6 @@ def create_notice_hwpx(
             "{{공고일자}}": notice_date,
             "{{공고기한}}": notice_deadline,
             "{{제목}}": str(title)[:15],
-            "{{건 명}}": subject,
-            "{{일 시}}": work_date,
-            "{{업 체}}": company,
             "{{전화번호}}": phone,
             "{{관리소명}}": office,
         }
@@ -1033,6 +1030,27 @@ def create_notice_hwpx(
         xml = data[section].decode(
             "utf-8"
         )
+
+        # 기존 HWPX의 1~3번 문장은 유지하되,
+        # 항목명과 입력값만 사용자가 정한 내용으로 교체한다.
+        fixed_lines = {
+            1: "1.  건   명: {{건 명}}",
+            2: "2.  일   시: {{일 시}}",
+            3: "3.  업   체: {{업 체}}",
+        }
+
+        for i, (label, value) in enumerate(custom_fields, 1):
+            old_line = fixed_lines[i]
+            new_line = (
+                f"{i}.  "
+                f"{html.escape(label, quote=False)}: "
+                f"{html.escape(value, quote=False)}"
+            )
+            if old_line not in xml:
+                raise RuntimeError(
+                    f"HWPX에서 기존 {i}번 항목 위치를 찾지 못했습니다."
+                )
+            xml = xml.replace(old_line, new_line, 1)
 
         for i in range(1, 6):
 
@@ -1165,7 +1183,8 @@ def show_notice_generator():
 
     st.info(
         "관련 법령의 최신 근거를 확인하여 "
-        "짧고 읽기 쉬운 안내문을 작성합니다."
+        "짧고 읽기 쉬운 안내문을 작성합니다. "
+        "1~3번 항목명도 직접 설정할 수 있습니다."
     )
 
     notice_date = st.text_input(
@@ -1180,23 +1199,52 @@ def show_notice_generator():
         key="notice_deadline_law"
     )
 
-    subject = st.text_input(
-        "③ 건명",
-        placeholder="예: 보일러 세관",
-        key="notice_subject_law"
-    )
+    st.markdown("**③~⑤ 기본항목을 사용자가 직접 지정할 수 있습니다.**")
 
-    work_date = st.text_input(
-        "④ 일시",
-        placeholder="예: 2026년 9월 10일 09:00~17:00",
-        key="notice_work_date_law"
-    )
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        field1_label = st.text_input(
+            "1. 항목명",
+            value="건명",
+            placeholder="예: 건명 / 점검내용 / 작업명",
+            key="notice_field1_label"
+        )
+    with col2:
+        field1_value = st.text_input(
+            "1. 입력내용",
+            placeholder="예: 보일러 세관",
+            key="notice_field1_value"
+        )
 
-    company = st.text_input(
-        "⑤ 업체",
-        placeholder="예: ○○설비",
-        key="notice_company_law"
-    )
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        field2_label = st.text_input(
+            "2. 항목명",
+            value="일시",
+            placeholder="예: 일시 / 작업장소 / 대상",
+            key="notice_field2_label"
+        )
+    with col2:
+        field2_value = st.text_input(
+            "2. 입력내용",
+            placeholder="예: 2026년 9월 10일 09:00~17:00",
+            key="notice_field2_value"
+        )
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        field3_label = st.text_input(
+            "3. 항목명",
+            value="업체",
+            placeholder="예: 업체 / 담당부서 / 담당자",
+            key="notice_field3_label"
+        )
+    with col2:
+        field3_value = st.text_input(
+            "3. 입력내용",
+            placeholder="예: ○○설비",
+            key="notice_field3_value"
+        )
 
     phone = st.text_input(
         "⑥ 전화번호",
@@ -1213,7 +1261,7 @@ def show_notice_generator():
     request_text = st.text_area(
         "⑧ 안내문 요청",
         placeholder=(
-            "예: 소방시설 점검에 대한 안내문을 작성해줘. "
+            "예: 보일러 세관 안내문을 작성해줘. "
             "관련 법규가 있으면 안내내용에 넣어줘."
         ),
         height=110,
@@ -1226,21 +1274,30 @@ def show_notice_generator():
         use_container_width=True
     ):
 
-        required = [
-            ("공고일자", notice_date),
-            ("건명", subject),
-            ("일시", work_date),
-            ("업체", company),
-            ("전화번호", phone),
-            ("관리소명", office),
-            ("안내문 요청", request_text),
+        custom_fields = [
+            (str(field1_label).strip(), str(field1_value).strip()),
+            (str(field2_label).strip(), str(field2_value).strip()),
+            (str(field3_label).strip(), str(field3_value).strip()),
         ]
 
-        missing = [
-            name
-            for name, value in required
-            if not str(value).strip()
-        ]
+        missing = []
+        if not notice_date.strip():
+            missing.append("공고일자")
+        if not notice_deadline.strip():
+            missing.append("공고기한")
+
+        for idx, (label, value) in enumerate(custom_fields, 1):
+            if not label:
+                missing.append(f"{idx}번 항목명")
+            if not value:
+                missing.append(f"{idx}번 입력내용")
+
+        if not phone.strip():
+            missing.append("전화번호")
+        if not office.strip():
+            missing.append("관리소명")
+        if not request_text.strip():
+            missing.append("안내문 요청")
 
         if missing:
             st.warning(
@@ -1254,9 +1311,14 @@ def show_notice_generator():
             with st.spinner(
                 "⚖️ 관련 법령의 근거를 확인하고 있습니다..."
             ):
+                field_summary = "\n".join(
+                    f"{label}: {value}"
+                    for label, value in custom_fields
+                )
+                subject = custom_fields[0][1]
                 law_context = search_official_law_with_ai(
                     subject,
-                    request_text
+                    request_text + "\n\n[안내문 기본항목]\n" + field_summary
                 )
 
             with st.spinner(
@@ -1264,7 +1326,7 @@ def show_notice_generator():
             ):
                 title, body_lines = (
                     generate_notice_text_with_law(
-                        request_text,
+                        request_text + "\n\n[안내문 기본항목]\n" + field_summary,
                         subject,
                         law_context
                     )
@@ -1339,9 +1401,7 @@ def show_notice_generator():
                     body_lines,
                     notice_date,
                     notice_deadline,
-                    subject,
-                    work_date,
-                    company,
+                    custom_fields,
                     phone,
                     office
                 )
@@ -1411,110 +1471,185 @@ if st.session_state.get("show_notice_generator", False):
     st.stop()
 
 
-if st.session_state.get("show_notice_generator", False):
-
-    show_notice_generator()
-    st.stop()
-
-
 if st.session_state.selected_file is None:
 
     # -----------------------------------------------------
-    # AI 비서 아이콘
+    # 첫 화면
     # -----------------------------------------------------
 
-    st.markdown(
-        '<div class="ai-avatar">🤖</div>',
-        unsafe_allow_html=True
-    )
+    if st.session_state.rulebook_category is None:
 
+        st.markdown(
+            '<div class="ai-avatar">🤖</div>',
+            unsafe_allow_html=True
+        )
 
-    # -----------------------------------------------------
-    # 인사말
-    # -----------------------------------------------------
+        st.markdown(
+            '<div class="ai-greeting">'
+            '대구경북지사 직원 여러분 안녕하세요^^<br>'
+            '무엇을 도와드릴까요?'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
-    st.markdown(
-        '<div class="ai-greeting">'
-        '대구경북지사 직원 여러분 안녕하세요^^<br>'
-        '무엇을 도와드릴까요?'
-        '</div>',
-        unsafe_allow_html=True
-    )
+        st.markdown(
+            '<div class="ai-description">'
+            '업무에 필요한 기능을 선택해주세요.'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
+        # -------------------------------------------------
+        # ① 업무지원
+        # -------------------------------------------------
 
-  
-
-
-    # -----------------------------------------------------
-    # 안내 카드
-    # -----------------------------------------------------
-
-    st.markdown(
-        """
-        <div class="welcome-card">
-
-        <div class="welcome-title">
-        🤖 규정에 근거하여 답변합니다
-        </div>
-
-        <div class="welcome-text">
-        등록된 사내 규정집에서 질문과 관련성이 높은
-        내용을 찾아 답변해 드립니다.<br>
-        <b>선택한 규정집에 명시되지 않은 내용은
-        임의로 답변하지 않습니다.</b>
-        </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
- 
-
-
-   
-
-    # -----------------------------------------------------
-    # -----------------------------------------------------
-    # 업무 지원
-    # -----------------------------------------------------
-
-    st.markdown(
-        '<div class="section-title">📝 업무 지원</div>',
-        unsafe_allow_html=True
-    )
-
-    if st.button(
-        "📄 안내문 생성",
-        key="notice_home_only",
-        use_container_width=True
-    ):
-        st.session_state.show_notice_generator = True
-        st.rerun()
-
-
-    # 규정집 선택
-    # -----------------------------------------------------
-
-    st.markdown(
-        '<div class="section-title">📚 먼저 규정집을 선택해주세요</div>',
-        unsafe_allow_html=True
-    )
-
-
-    for i, filename in enumerate(filenames):
+        st.markdown(
+            """
+            <div class="welcome-card">
+                <div class="welcome-title">📝 업무지원</div>
+                <div class="welcome-text">
+                    업무에 필요한 안내문을 AI로 작성합니다.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         if st.button(
-            f"📄  {filename}",
-            key=f"pdf_{i}",
+            "📄 안내문 생성",
+            key="home_notice_menu",
             use_container_width=True
         ):
+            st.session_state.show_notice_generator = True
+            st.rerun()
 
-            st.session_state.selected_file = filename
+        # -------------------------------------------------
+        # ② 규정집 선택
+        # -------------------------------------------------
 
-            st.session_state.messages = []
+        st.markdown(
+            """
+            <div class="welcome-card" style="margin-top:22px;">
+                <div class="welcome-title">📚 규정집 선택</div>
+                <div class="welcome-text">
+                    업무 분야를 먼저 선택한 후 관련 규정집을 선택해주세요.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button(
+                "🏢 시설업무",
+                key="rule_category_facility",
+                use_container_width=True
+            ):
+                st.session_state.rulebook_category = "시설업무"
+                st.rerun()
+
+        with col2:
+            if st.button(
+                "📋 행정업무",
+                key="rule_category_admin",
+                use_container_width=True
+            ):
+                st.session_state.rulebook_category = "행정업무"
+                st.rerun()
+
+
+    else:
+
+        # -------------------------------------------------
+        # 규정집 선택 화면
+        # -------------------------------------------------
+
+        category = st.session_state.rulebook_category
+
+        st.markdown(
+            '<div class="ai-avatar" style="font-size:55px;">📚</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f'<div class="ai-greeting" style="font-size:21px;">'
+            f'{category} 규정집 선택'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        # 기존 첫 화면의 규정 안내 문구를 이곳으로 이동
+        st.markdown(
+            """
+            <div class="welcome-card">
+
+            <div class="welcome-title">
+            🤖 규정에 근거하여 답변합니다
+            </div>
+
+            <div class="welcome-text">
+            등록된 사내 규정집에서 질문과 관련성이 높은
+            내용을 찾아 답변해 드립니다.<br>
+            <b>선택한 규정집에 명시되지 않은 내용은
+            임의로 답변하지 않습니다.</b>
+            </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # -------------------------------------------------
+        # 규정집 목록
+        # -------------------------------------------------
+
+        st.markdown(
+            f'<div class="section-title">📄 {category} 규정집</div>',
+            unsafe_allow_html=True
+        )
+
+        # 파일명 기준으로 분야를 구분
+        facility_keywords = ["시설", "기술", "전기", "기계", "소방", "건축", "영선", "승강기"]
+        admin_keywords = ["행정", "관리", "복무", "인사", "회계", "계약", "민원", "주거복지"]
+
+        if category == "시설업무":
+            category_files = [
+                filename for filename in filenames
+                if any(keyword in filename for keyword in facility_keywords)
+            ]
+        else:
+            category_files = [
+                filename for filename in filenames
+                if any(keyword in filename for keyword in admin_keywords)
+            ]
+
+        # 파일명에 분야 키워드가 없는 경우에는 전체 규정집을 보여주어
+        # 기존 기능이 사라지지 않도록 함
+        if not category_files:
+            category_files = filenames
+
+        for i, filename in enumerate(category_files):
+
+            if st.button(
+                f"📄  {filename}",
+                key=f"{category}_pdf_{i}",
+                use_container_width=True
+            ):
+
+                st.session_state.selected_file = filename
+                st.session_state.messages = []
+                st.rerun()
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        if st.button(
+            "↩️ 업무 분야 다시 선택",
+            key="back_to_rule_categories",
+            use_container_width=True
+        ):
+            st.session_state.rulebook_category = None
             st.rerun()
 
 
