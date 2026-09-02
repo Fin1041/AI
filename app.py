@@ -742,6 +742,19 @@ def get_notice_template_bytes():
 def download_notice_template():
     data = get_notice_template_bytes()
 
+    temp_file = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".hwpx"
+    )
+
+    try:
+        temp_file.write(data)
+        temp_file.flush()
+    finally:
+        temp_file.close()
+
+    return temp_file.name
+
 def search_official_law_with_ai(
     subject,
     request_text
@@ -1498,464 +1511,86 @@ if st.session_state.selected_file is None:
 
     if st.session_state.rulebook_category is None:
 
-        # 첫 화면 전용 디자인
         st.markdown(
-            """
-            <style>
-            /* 첫 화면에서만 기존 상단 제목/구분선 숨김 */
-            .stApp:has(.home-screen) .top-title {
-                display: none !important;
-            }
-
-            .stApp:has(.home-screen) hr {
-                display: none !important;
-            }
-
-            .home-screen {
-                width: 100%;
-                margin: 0 auto;
-            }
-
-            /* 상단 네이비 헤더 */
-            .home-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                background: #17304d;
-                color: #ffffff;
-                padding: 18px 28px;
-                margin: -18px -18px 0 -18px;
-                box-sizing: border-box;
-            }
-
-            .home-header-left {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                font-size: 24px;
-                font-weight: 800;
-                letter-spacing: -1.2px;
-            }
-
-            .home-header-house {
-                font-size: 37px;
-                line-height: 1;
-            }
-
-            .home-header-right {
-                font-size: 16px;
-                font-weight: 700;
-                white-space: nowrap;
-            }
-
-            /* 중앙 제목 */
-            .home-hero {
-                text-align: center;
-                padding: 34px 10px 29px;
-            }
-
-            .home-hero-title {
-                margin: 0;
-                color: #17365d;
-                font-size: 44px;
-                line-height: 1.15;
-                font-weight: 900;
-                letter-spacing: -2.3px;
-            }
-
-            .home-hero-title .ai-blue {
-                color: #2777dd;
-            }
-
-            .home-hero-subtitle {
-                margin-top: 13px;
-                color: #334a67;
-                font-size: 18px;
-                line-height: 1.5;
-                font-weight: 500;
-                letter-spacing: -0.7px;
-            }
-
-            /* 바깥 테두리 */
-            .home-panel-wrap {
-                border: 2px solid #d7e0e9;
-                border-radius: 24px;
-                padding: 18px;
-                background: #ffffff;
-            }
-
-            /* st.column 자체를 좌우 패널처럼 보이게 */
-            div[data-testid="stColumn"]:has(.home-blue-marker) {
-                background: linear-gradient(180deg, #edf6fd 0%, #e7f2fb 100%) !important;
-                border-radius: 21px !important;
-                padding: 24px 24px 21px !important;
-                box-sizing: border-box;
-            }
-
-            div[data-testid="stColumn"]:has(.home-green-marker) {
-                background: linear-gradient(180deg, #eef9ea 0%, #eaf6e7 100%) !important;
-                border-radius: 21px !important;
-                padding: 24px 24px 21px !important;
-                box-sizing: border-box;
-            }
-
-            .home-blue-marker,
-            .home-green-marker {
-                display: none;
-            }
-
-            /* 패널 제목 */
-            .home-panel-head {
-                display: flex;
-                align-items: center;
-                gap: 16px;
-                margin-bottom: 22px;
-            }
-
-            .home-panel-icon {
-                width: 76px;
-                height: 76px;
-                min-width: 76px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 38px;
-            }
-
-            .home-blue-icon {
-                background: #2b7cdd;
-            }
-
-            .home-green-icon {
-                background: #24935c;
-            }
-
-            .home-panel-title {
-                font-size: 27px;
-                line-height: 1.2;
-                font-weight: 900;
-                letter-spacing: -1.3px;
-            }
-
-            .home-blue-title {
-                color: #173f79;
-            }
-
-            .home-green-title {
-                color: #176a42;
-            }
-
-            .home-panel-desc {
-                margin-top: 6px;
-                color: #334b67;
-                font-size: 14px;
-                line-height: 1.5;
-                letter-spacing: -0.4px;
-            }
-
-            /* 메뉴 버튼 */
-            .home-screen div.stButton {
-                margin-top: 0 !important;
-                margin-bottom: 12px !important;
-            }
-
-            .home-screen div.stButton > button {
-                width: 100% !important;
-                min-height: 112px !important;
-                border-radius: 17px !important;
-                border: 1px solid #d7e2ec !important;
-                background: rgba(255,255,255,0.97) !important;
-                box-shadow: 0 5px 13px rgba(39,71,103,0.08) !important;
-                color: #18314f !important;
-                font-size: 20px !important;
-                font-weight: 900 !important;
-                text-align: left !important;
-                padding: 19px 22px !important;
-                transition: 0.2s ease !important;
-            }
-
-            .home-screen div.stButton > button:hover {
-                transform: translateY(-1px) !important;
-                border-color: #b8cde1 !important;
-                box-shadow: 0 7px 15px rgba(39,71,103,0.11) !important;
-            }
-
-            /* 버튼 아래 설명 */
-            .home-menu-description {
-                color: #405873;
-                font-size: 13px;
-                line-height: 1.5;
-                margin: -1px 4px 13px;
-                padding-left: 65px;
-                position: relative;
-                top: -54px;
-                margin-bottom: -34px;
-                pointer-events: none;
-            }
-
-            .home-menu-description::before {
-                content: "";
-                position: absolute;
-                left: 16px;
-                top: -5px;
-                width: 46px;
-                height: 46px;
-                border-radius: 14px;
-                background: #dcecfb;
-            }
-
-            .home-green-description::before {
-                background: #e1f3e4;
-            }
-
-            /* 아이콘을 버튼 안에 함께 보이게 하기 위해 버튼 텍스트 앞쪽 공간 확보 */
-            .home-blue-button-marker,
-            .home-green-button-marker {
-                display: none;
-            }
-
-            .home-menu-arrow {
-                float: right;
-                font-size: 32px;
-                line-height: 1;
-                margin-top: -2px;
-                color: #236fc1;
-            }
-
-            /* 모바일 */
-            @media (max-width: 780px) {
-
-                .home-header {
-                    padding: 15px 16px;
-                    margin-left: -14px;
-                    margin-right: -14px;
-                }
-
-                .home-header-left {
-                    font-size: 18px;
-                }
-
-                .home-header-house {
-                    font-size: 28px;
-                }
-
-                .home-header-right {
-                    font-size: 13px;
-                }
-
-                .home-hero {
-                    padding: 24px 4px 22px;
-                }
-
-                .home-hero-title {
-                    font-size: 31px;
-                    letter-spacing: -1.7px;
-                }
-
-                .home-hero-subtitle {
-                    font-size: 13px;
-                }
-
-                .home-panel-wrap {
-                    padding: 9px;
-                    border-radius: 19px;
-                }
-
-                div[data-testid="stColumn"]:has(.home-blue-marker),
-                div[data-testid="stColumn"]:has(.home-green-marker) {
-                    padding: 18px 14px 17px !important;
-                    border-radius: 18px !important;
-                }
-
-                .home-panel-head {
-                    gap: 12px;
-                    margin-bottom: 18px;
-                }
-
-                .home-panel-icon {
-                    width: 58px;
-                    height: 58px;
-                    min-width: 58px;
-                    font-size: 29px;
-                }
-
-                .home-panel-title {
-                    font-size: 22px;
-                }
-
-                .home-panel-desc {
-                    font-size: 12px;
-                }
-
-                .home-screen div.stButton > button {
-                    min-height: 92px !important;
-                    font-size: 18px !important;
-                    padding: 15px 17px !important;
-                }
-
-                .home-menu-description {
-                    font-size: 12px;
-                    padding-left: 56px;
-                    top: -47px;
-                    margin-bottom: -28px;
-                }
-
-                .home-menu-description::before {
-                    width: 41px;
-                    height: 41px;
-                    left: 12px;
-                    top: -4px;
-                }
-            }
-            </style>
-            """,
+            '<div class="ai-avatar">🤖</div>',
             unsafe_allow_html=True
         )
 
-        st.markdown('<div class="home-screen">', unsafe_allow_html=True)
-
-        # 상단 헤더
         st.markdown(
-            """
-            <div class="home-header">
-                <div class="home-header-left">
-                    <span class="home-header-house">⌂</span>
-                    <span>주택관리공단 대구경북지사</span>
-                </div>
-                <div class="home-header-right">ⓘ 이용안내</div>
-            </div>
-            """,
+            '<div class="ai-greeting">'
+            '대구경북지사 직원 여러분 안녕하세요^^<br>'
+            '무엇을 도와드릴까요?'
+            '</div>',
             unsafe_allow_html=True
         )
 
-        # 중앙 제목
+        st.markdown(
+            '<div class="ai-description">'
+            '업무에 필요한 기능을 선택해주세요.'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        # -------------------------------------------------
+        # ① 업무지원
+        # -------------------------------------------------
+
         st.markdown(
             """
-            <div class="home-hero">
-                <div class="home-hero-title">
-                    🤖 기술업무 <span class="ai-blue">AI</span> 챗봇
-                </div>
-                <div class="home-hero-subtitle">
-                    기술규정 검색부터 안내문 작성까지, AI가 빠르고 정확하게 도와드립니다.
+            <div class="welcome-card">
+                <div class="welcome-title">📝 업무지원</div>
+                <div class="welcome-text">
+                    업무에 필요한 안내문을 AI로 작성합니다.
                 </div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-        st.markdown('<div class="home-panel-wrap">', unsafe_allow_html=True)
-
-        col_left, col_right = st.columns(2, gap="small")
+        if st.button(
+            "📄 안내문 생성",
+            key="home_notice_menu",
+            use_container_width=True
+        ):
+            st.session_state.show_notice_generator = True
+            st.rerun()
 
         # -------------------------------------------------
-        # 왼쪽 : 업무지원항목
+        # ② 규정집 선택
         # -------------------------------------------------
-        with col_left:
 
-            st.markdown('<div class="home-blue-marker"></div>', unsafe_allow_html=True)
-
-            st.markdown(
-                """
-                <div class="home-panel-head">
-                    <div class="home-panel-icon home-blue-icon">📝</div>
-                    <div>
-                        <div class="home-panel-title home-blue-title">업무지원항목</div>
-                        <div class="home-panel-desc">다양한 업무를 AI가 지원합니다.</div>
-                    </div>
+        st.markdown(
+            """
+            <div class="welcome-card" style="margin-top:22px;">
+                <div class="welcome-title">📚 규정집 선택</div>
+                <div class="welcome-text">
+                    업무 분야를 먼저 선택한 후 관련 규정집을 선택해주세요.
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
+        col1, col2 = st.columns(2)
+
+        with col1:
             if st.button(
-                "📄  안내문 작성                                      ›",
-                key="home_notice_menu",
-                use_container_width=True
-            ):
-                st.session_state.show_notice_generator = True
-                st.rerun()
-
-            st.markdown(
-                """
-                <div class="home-menu-description">
-                    입력한 내용을 바탕으로 안내문을 작성합니다.
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            if st.button(
-                "💬  기타 업무지원                                  ›",
-                key="home_other_support",
-                use_container_width=True
-            ):
-                st.info("기타 업무지원 기능은 준비 중입니다.")
-
-            st.markdown(
-                """
-                <div class="home-menu-description">
-                    추가 업무지원 기능을 준비하고 있습니다.
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        # -------------------------------------------------
-        # 오른쪽 : 규정집 선택
-        # -------------------------------------------------
-        with col_right:
-
-            st.markdown('<div class="home-green-marker"></div>', unsafe_allow_html=True)
-
-            st.markdown(
-                """
-                <div class="home-panel-head">
-                    <div class="home-panel-icon home-green-icon">📖</div>
-                    <div>
-                        <div class="home-panel-title home-green-title">규정집 선택</div>
-                        <div class="home-panel-desc">찾고자 하는 규정집을 선택해주세요.</div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            if st.button(
-                "🏢  시설업무                                        ›",
+                "🏢 시설업무",
                 key="rule_category_facility",
                 use_container_width=True
             ):
                 st.session_state.rulebook_category = "시설업무"
                 st.rerun()
 
-            st.markdown(
-                """
-                <div class="home-menu-description home-green-description">
-                    시설·기계·전기 등 기술 관련<br>규정집을 확인합니다.
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
+        with col2:
             if st.button(
-                "📋  행정업무                                        ›",
+                "📋 행정업무",
                 key="rule_category_admin",
                 use_container_width=True
             ):
                 st.session_state.rulebook_category = "행정업무"
                 st.rerun()
 
-            st.markdown(
-                """
-                <div class="home-menu-description home-green-description">
-                    행정·인사·예산·평가 등<br>행정 관련 규정집을 확인합니다.
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        st.markdown('</div></div>', unsafe_allow_html=True)
 
     else:
 
