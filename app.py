@@ -1610,37 +1610,70 @@ if st.session_state.selected_file is None:
             unsafe_allow_html=True
         )
 
-        # 파일명 기준으로 분야를 구분
-        facility_keywords = ["시설", "기술", "전기", "기계", "소방", "건축", "영선", "승강기"]
-        admin_keywords = ["행정", "관리", "복무", "인사", "회계", "계약", "민원", "주거복지"]
+        # -------------------------------------------------
+        # 분야별 분류
+        # -------------------------------------------------
+        # 기존 규정집이 사라지지 않도록 '파일명에 키워드가 없는 문서'도
+        # 별도의 기타 규정집으로 반드시 노출한다.
+        facility_keywords = [
+            "시설", "기술", "전기", "기계", "소방", "건축",
+            "영선", "승강기", "보일러", "수전", "가스", "안전",
+            "방재", "설비", "환경", "에너지", "조경", "주차"
+        ]
+        admin_keywords = [
+            "행정", "관리", "복무", "인사", "회계", "계약",
+            "민원", "주거복지", "복지", "기획", "예산", "노무",
+            "문서", "개인정보", "정보보안", "감사", "윤리", "교육"
+        ]
 
         if category == "시설업무":
-            category_files = [
+            matched_files = [
                 filename for filename in filenames
                 if any(keyword in filename for keyword in facility_keywords)
             ]
         else:
-            category_files = [
+            matched_files = [
                 filename for filename in filenames
                 if any(keyword in filename for keyword in admin_keywords)
             ]
 
-        # 파일명에 분야 키워드가 없는 경우에는 전체 규정집을 보여주어
-        # 기존 기능이 사라지지 않도록 함
-        if not category_files:
-            category_files = filenames
+        unmatched_files = [
+            filename for filename in filenames
+            if filename not in matched_files
+        ]
 
-        for i, filename in enumerate(category_files):
+        # 기존 규정집을 절대 숨기지 않도록 분류된 규정집 + 기타 규정집 순서로 표시
+        category_files = matched_files + unmatched_files
 
-            if st.button(
-                f"📄  {filename}",
-                key=f"{category}_pdf_{i}",
-                use_container_width=True
-            ):
+        if matched_files:
+            for i, filename in enumerate(matched_files):
+                if st.button(
+                    f"📄  {filename}",
+                    key=f"{category}_pdf_{i}",
+                    use_container_width=True
+                ):
+                    st.session_state.selected_file = filename
+                    st.session_state.messages = []
+                    st.rerun()
 
-                st.session_state.selected_file = filename
-                st.session_state.messages = []
-                st.rerun()
+        if unmatched_files:
+            st.markdown(
+                '<div class="section-title" style="font-size:15px;">'
+                '📁 기타 규정집'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+            offset = len(matched_files)
+            for j, filename in enumerate(unmatched_files):
+                if st.button(
+                    f"📄  {filename}",
+                    key=f"{category}_other_pdf_{j}",
+                    use_container_width=True
+                ):
+                    st.session_state.selected_file = filename
+                    st.session_state.messages = []
+                    st.rerun()
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
