@@ -1613,40 +1613,27 @@ if st.session_state.selected_file is None:
         # -------------------------------------------------
         # 분야별 분류
         # -------------------------------------------------
-        # 기존 규정집이 사라지지 않도록 '파일명에 키워드가 없는 문서'도
-        # 별도의 기타 규정집으로 반드시 노출한다.
-        facility_keywords = [
-            "시설", "기술", "전기", "기계", "소방", "건축",
-            "영선", "승강기", "보일러", "수전", "가스", "안전",
-            "방재", "설비", "환경", "에너지", "조경", "주차"
-        ]
-        admin_keywords = [
-            "행정", "관리", "복무", "인사", "회계", "계약",
-            "민원", "주거복지", "복지", "기획", "예산", "노무",
-            "문서", "개인정보", "정보보안", "감사", "윤리", "교육"
-        ]
+        # 행정업무에는 "내부경영평가 편람"만 표시하고,
+        # 나머지 모든 규정집은 시설업무에 표시합니다.
 
-        if category == "시설업무":
-            matched_files = [
-                filename for filename in filenames
-                if any(keyword in filename for keyword in facility_keywords)
-            ]
-        else:
-            matched_files = [
-                filename for filename in filenames
-                if any(keyword in filename for keyword in admin_keywords)
-            ]
-
-        unmatched_files = [
+        admin_files = [
             filename for filename in filenames
-            if filename not in matched_files
+            if "내부경영평가 편람" in filename
         ]
 
-        # 기존 규정집을 절대 숨기지 않도록 분류된 규정집 + 기타 규정집 순서로 표시
-        category_files = matched_files + unmatched_files
+        facility_files = [
+            filename for filename in filenames
+            if filename not in admin_files
+        ]
 
-        if matched_files:
-            for i, filename in enumerate(matched_files):
+        category_files = (
+            facility_files
+            if category == "시설업무"
+            else admin_files
+        )
+
+        if category_files:
+            for i, filename in enumerate(category_files):
                 if st.button(
                     f"📄  {filename}",
                     key=f"{category}_pdf_{i}",
@@ -1655,25 +1642,11 @@ if st.session_state.selected_file is None:
                     st.session_state.selected_file = filename
                     st.session_state.messages = []
                     st.rerun()
-
-        if unmatched_files:
-            st.markdown(
-                '<div class="section-title" style="font-size:15px;">'
-                '📁 기타 규정집'
-                '</div>',
-                unsafe_allow_html=True
-            )
-
-            offset = len(matched_files)
-            for j, filename in enumerate(unmatched_files):
-                if st.button(
-                    f"📄  {filename}",
-                    key=f"{category}_other_pdf_{j}",
-                    use_container_width=True
-                ):
-                    st.session_state.selected_file = filename
-                    st.session_state.messages = []
-                    st.rerun()
+        else:
+            if category == "행정업무":
+                st.info("행정업무 규정집이 없습니다.")
+            else:
+                st.info("시설업무 규정집이 없습니다.")
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
