@@ -1657,21 +1657,24 @@ if st.session_state.selected_file is None:
             /* 메뉴 버튼 */
             .home-screen div.stButton {
                 margin-top: 0 !important;
-                margin-bottom: 12px !important;
+                margin-bottom: 8px !important;
             }
 
             .home-screen div.stButton > button {
                 width: 100% !important;
-                min-height: 112px !important;
+                min-height: 72px !important;
+                height: 72px !important;
                 border-radius: 17px !important;
                 border: 1px solid #d7e2ec !important;
                 background: rgba(255,255,255,0.97) !important;
                 box-shadow: 0 5px 13px rgba(39,71,103,0.08) !important;
                 color: #18314f !important;
-                font-size: 20px !important;
+                font-size: 18px !important;
                 font-weight: 900 !important;
                 text-align: left !important;
-                padding: 19px 22px !important;
+                padding: 15px 18px !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
                 transition: 0.2s ease !important;
             }
 
@@ -1681,46 +1684,38 @@ if st.session_state.selected_file is None:
                 box-shadow: 0 7px 15px rgba(39,71,103,0.11) !important;
             }
 
-            /* 버튼 아래 설명 */
+            /* 버튼 아래 설명은 정상적인 문서 흐름으로 배치하여 겹치지 않게 함 */
             .home-menu-description {
                 color: #405873;
-                font-size: 13px;
-                line-height: 1.5;
-                margin: -1px 4px 13px;
-                padding-left: 65px;
-                position: relative;
-                top: -54px;
-                margin-bottom: -34px;
+                font-size: 12px;
+                line-height: 1.55;
+                margin: 0 5px 16px;
+                padding: 0 4px 0 12px;
+                position: static;
+                top: auto;
                 pointer-events: none;
+                box-sizing: border-box;
             }
 
             .home-menu-description::before {
-                content: "";
-                position: absolute;
-                left: 16px;
-                top: -5px;
-                width: 46px;
-                height: 46px;
-                border-radius: 14px;
-                background: #dcecfb;
+                display: none;
             }
 
             .home-green-description::before {
-                background: #e1f3e4;
+                display: none;
             }
 
-            /* 아이콘을 버튼 안에 함께 보이게 하기 위해 버튼 텍스트 앞쪽 공간 확보 */
             .home-blue-button-marker,
             .home-green-button-marker {
                 display: none;
             }
 
             .home-menu-arrow {
-                float: right;
-                font-size: 32px;
-                line-height: 1;
-                margin-top: -2px;
-                color: #236fc1;
+                float: none;
+                font-size: inherit;
+                line-height: inherit;
+                margin-top: 0;
+                color: inherit;
             }
 
             /* 모바일 */
@@ -1789,23 +1784,21 @@ if st.session_state.selected_file is None:
                 }
 
                 .home-screen div.stButton > button {
-                    min-height: 92px !important;
-                    font-size: 18px !important;
-                    padding: 15px 17px !important;
+                    min-height: 64px !important;
+                    height: 64px !important;
+                    font-size: 16px !important;
+                    padding: 13px 15px !important;
                 }
 
                 .home-menu-description {
-                    font-size: 12px;
-                    padding-left: 56px;
-                    top: -47px;
-                    margin-bottom: -28px;
+                    font-size: 11px;
+                    line-height: 1.5;
+                    padding-left: 8px;
+                    margin: 0 4px 14px;
                 }
 
                 .home-menu-description::before {
-                    width: 41px;
-                    height: 41px;
-                    left: 12px;
-                    top: -4px;
+                    display: none;
                 }
             }
             </style>
@@ -1869,7 +1862,7 @@ if st.session_state.selected_file is None:
             )
 
             if st.button(
-                "📄  안내문 작성                                      ›",
+                "📄  안내문 작성   ›",
                 key="home_notice_menu",
                 use_container_width=True
             ):
@@ -1886,7 +1879,7 @@ if st.session_state.selected_file is None:
             )
 
             if st.button(
-                "💬  기타 업무지원                                  ›",
+                "💬  기타 업무지원   ›",
                 key="home_other_support",
                 use_container_width=True
             ):
@@ -1922,7 +1915,7 @@ if st.session_state.selected_file is None:
             )
 
             if st.button(
-                "🏢  시설업무                                        ›",
+                "🏢  시설업무   ›",
                 key="rule_category_facility",
                 use_container_width=True
             ):
@@ -1939,7 +1932,7 @@ if st.session_state.selected_file is None:
             )
 
             if st.button(
-                "📋  행정업무                                        ›",
+                "📋  행정업무   ›",
                 key="rule_category_admin",
                 use_container_width=True
             ):
