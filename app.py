@@ -42,228 +42,322 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* 첫 화면 전용 디자인. 다른 화면의 기존 스타일은 유지 */
-    .main .block-container:has(.home-screen) .top-title {
-        background: linear-gradient(135deg, #182f49 0%, #203f60 100%);
-        color: #ffffff !important;
-        margin: -18px -18px 0 -18px;
-        padding: 19px 28px;
-        font-size: 20px;
-        font-weight: 800;
-        letter-spacing: -0.7px;
-        border-radius: 0;
-    }
-    .main .block-container:has(.home-screen) hr { display:none; }
 
-    .home-screen { width:100%; }
-    .home-hero {
-        text-align:center;
-        padding:34px 8px 28px;
-        background:#fff;
-    }
-    .home-hero-title {
-        color:#173b68;
-        font-size:44px;
-        font-weight:900;
-        letter-spacing:-2.5px;
-        line-height:1.18;
-    }
-    .home-hero-title .ai-blue { color:#2b7ddd; }
-    .home-hero-desc {
-        margin-top:12px;
-        color:#283a52;
-        font-size:16px;
-        letter-spacing:-0.6px;
-    }
-
-    .home-frame {
-        border:2px solid #d7e1eb;
-        border-radius:24px;
-        padding:18px;
-        background:#fff;
-        box-sizing:border-box;
-    }
-
-    /* Streamlit column 자체를 이미지의 좌/우 색상 패널로 사용 */
-    div[data-testid="column"]:has(.home-blue-anchor),
-    div[data-testid="column"]:has(.home-green-anchor) {
-        border-radius:21px;
-        padding:27px 21px 25px !important;
-        box-sizing:border-box;
-    }
-    div[data-testid="column"]:has(.home-blue-anchor) {
-        background:linear-gradient(180deg,#edf6ff 0%,#e6f1fb 100%);
-    }
-    div[data-testid="column"]:has(.home-green-anchor) {
-        background:linear-gradient(180deg,#eff9eb 0%,#e9f6e5 100%);
-    }
-
-    .home-anchor { display:none; }
-    .home-panel-head {
-        display:flex;
-        align-items:center;
-        gap:13px;
-        margin-bottom:15px;
-    }
-    .home-circle {
-        width:60px;
-        height:60px;
-        min-width:60px;
-        border-radius:50%;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-size:33px;
-    }
-    .home-circle-blue { background:#2d82dc; }
-    .home-circle-green { background:#23955f; }
-    .home-panel-title {
-        font-size:27px;
-        font-weight:900;
-        line-height:1.1;
-        letter-spacing:-1.4px;
-    }
-    .home-panel-title.blue { color:#174d86; }
-    .home-panel-title.green { color:#197043; }
-    .home-panel-desc {
-        margin-top:4px;
-        color:#30445c;
-        font-size:13px;
-        line-height:1.4;
-        letter-spacing:-0.4px;
-    }
-
-    /* 실제 클릭 버튼을 참고 이미지의 흰색 메뉴 카드로 */
-    .home-screen .stButton { margin:0 0 6px 0; }
-    .home-screen .stButton > button {
-        min-height:48px !important;
-        height:48px !important;
-        padding:8px 15px !important;
-        border-radius:15px !important;
-        border:1px solid #d6e1eb !important;
-        background:#ffffff !important;
-        color:#1d3551 !important;
-        box-shadow:0 3px 10px rgba(37,74,108,.07) !important;
-        transform:none !important;
-        text-align:left !important;
-    }
-    .home-screen .stButton > button:hover {
-        background:#ffffff !important;
-        transform:translateY(-1px) !important;
-        box-shadow:0 5px 13px rgba(37,74,108,.11) !important;
-    }
-    .home-screen .stButton > button p {
-        white-space:nowrap !important;
-        line-height:1.2 !important;
-        font-size:16px !important;
-        font-weight:800 !important;
-        color:#1d3551 !important;
-        margin:0 !important;
-    }
-    .home-menu-desc {
-        margin:-1px 7px 12px 7px;
-        color:#30445c;
-        font-size:12px;
-        line-height:1.45;
-        letter-spacing:-0.35px;
-    }
-
-    @media (max-width:760px) {
-        .main .block-container:has(.home-screen) .top-title {
-            margin-left:-14px;
-            margin-right:-14px;
-            padding-left:18px;
-            padding-right:18px;
-            font-size:17px;
-        }
-        .home-hero { padding:25px 4px 22px; }
-        .home-hero-title { font-size:31px; letter-spacing:-1.6px; }
-        .home-hero-desc { font-size:13px; line-height:1.5; }
-        .home-frame { padding:10px; border-radius:18px; }
-        div[data-testid="column"]:has(.home-blue-anchor),
-        div[data-testid="column"]:has(.home-green-anchor) {
-            padding:21px 15px 18px !important;
-            margin-bottom:10px;
-        }
-        .home-circle { width:50px; height:50px; min-width:50px; font-size:27px; }
-        .home-panel-title { font-size:22px; }
-        .home-panel-desc { font-size:12px; }
-        .home-screen .stButton > button { min-height:46px !important; height:46px !important; }
-        .home-menu-desc { font-size:11px; margin-bottom:10px; }
-    }
     /* =====================================================
-       첫 화면 버튼/설명 위치 보정
-       ※ 첫 화면 디자인만 수정. 기능/입력/출력 코드는 변경하지 않음
+       전체 화면
        ===================================================== */
-    .home-screen .stButton {
-        position: relative !important;
-        margin: 0 0 4px 0 !important;
-        padding: 0 !important;
-        clear: both !important;
+
+    .stApp {
+        background: #f5f8fc;
     }
 
-    .home-screen .stButton > button {
-        position: relative !important;
-        z-index: 2 !important;
-        display: flex !important;
-        align-items: center !important;
-        width: 100% !important;
-        min-height: 46px !important;
-        height: auto !important;
-        padding: 9px 14px !important;
-        overflow: visible !important;
-        box-sizing: border-box !important;
+
+    /* 가운데 전체 영역 */
+
+    .main .block-container {
+        max-width: 720px;
+        padding-top: 18px;
+        padding-left: 18px;
+        padding-right: 18px;
+        padding-bottom: 80px;
     }
 
-    .home-screen .stButton > button > div {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        width: 100% !important;
-        min-width: 0 !important;
-        gap: 7px !important;
+
+    /* Streamlit 기본 요소 */
+
+    footer {
+        visibility: hidden;
     }
 
-    .home-screen .stButton > button p {
-        display: block !important;
-        position: static !important;
-        width: auto !important;
-        min-width: 0 !important;
-        overflow: visible !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        white-space: nowrap !important;
-        line-height: 1.25 !important;
-        transform: none !important;
+    [data-testid="stToolbar"] {
+        visibility: hidden;
+        height: 0;
     }
 
-    .home-menu-desc {
-        display: block !important;
-        position: relative !important;
-        z-index: 1 !important;
-        clear: both !important;
-        width: auto !important;
-        margin: 3px 7px 13px 7px !important;
-        padding: 0 !important;
-        overflow: visible !important;
-        line-height: 1.5 !important;
+
+    /* =====================================================
+       상단 제목
+       ===================================================== */
+
+    .top-company {
+        font-size: 18px;
+        font-weight: 700;
+        color: #20364f;
+        margin-top: 5px;
+        margin-bottom: 3px;
     }
 
-    @media (max-width:760px) {
-        .home-screen .stButton > button {
+    .top-title {
+        font-size: 30px;
+        font-weight: 800;
+        color: #16283d;
+        margin-top: 0px;
+        margin-bottom: 5px;
+        letter-spacing: -1.5px;
+    }
+
+    .top-subtitle {
+        font-size: 14px;
+        color: #718096;
+        margin-bottom: 15px;
+    }
+
+
+    /* =====================================================
+       AI 로봇 영역
+       ===================================================== */
+
+    .ai-avatar {
+        text-align: center;
+        font-size: 70px;
+        line-height: 1;
+        margin-top: 20px;
+        margin-bottom: 8px;
+    }
+
+
+    .ai-greeting {
+        text-align: center;
+        color: #172b43;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin-top: 8px;
+        margin-bottom: 5px;
+    }
+
+
+    .ai-description {
+        text-align: center;
+        color: #7a8797;
+        font-size: 14px;
+        margin-bottom: 22px;
+    }
+
+
+    /* =====================================================
+       안내 카드
+       ===================================================== */
+
+    .welcome-card {
+        background: #ffffff;
+        border: 1px solid #e3ebf5;
+        border-radius: 22px;
+        padding: 18px 20px;
+        margin-top: 8px;
+        margin-bottom: 18px;
+        box-shadow: 0 5px 20px rgba(35, 80, 130, 0.06);
+    }
+
+
+    .welcome-title {
+        color: #175ca8;
+        font-size: 15px;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+
+    .welcome-text {
+        color: #66758a;
+        font-size: 13px;
+        line-height: 1.7;
+    }
+
+
+    /* =====================================================
+       추천 질문 제목
+       ===================================================== */
+
+    .section-title {
+        color: #24364d;
+        font-size: 17px;
+        font-weight: 800;
+        margin-top: 18px;
+        margin-bottom: 10px;
+    }
+
+
+    /* =====================================================
+       버튼 디자인
+       ===================================================== */
+
+    div.stButton > button {
+        width: 100%;
+        min-height: 48px !important;
+
+        border-radius: 15px !important;
+
+        border: 1px solid #dce7f4 !important;
+
+        background-color: #ffffff !important;
+
+        color: #29435f !important;
+
+        font-size: 14px !important;
+
+        font-weight: 600 !important;
+
+        box-shadow: 0 3px 12px rgba(35, 80, 130, 0.04);
+
+        transition: 0.2s;
+    }
+
+
+    div.stButton > button:hover {
+        background-color: #f1f7ff !important;
+
+        border-color: #8dbcf0 !important;
+
+        color: #1765b5 !important;
+
+        transform: translateY(-1px);
+    }
+
+
+    /* =====================================================
+       규정집 버튼
+       ===================================================== */
+
+    .document-area {
+        margin-top: 25px;
+    }
+
+
+    /* =====================================================
+       선택된 규정집
+       ===================================================== */
+
+    .selected-document {
+        background: #eaf4ff;
+        border: 1px solid #c9e1fa;
+        border-radius: 16px;
+        padding: 14px 16px;
+        margin-top: 8px;
+        margin-bottom: 12px;
+    }
+
+
+    .selected-document-title {
+        color: #1761a9;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+
+    .selected-document-name {
+        color: #243c56;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.5;
+        word-break: keep-all;
+    }
+
+
+    /* =====================================================
+       채팅 영역
+       ===================================================== */
+
+    [data-testid="stChatMessage"] {
+        border-radius: 18px;
+        margin-bottom: 10px;
+    }
+
+
+    /* 사용자 메시지 */
+
+    [data-testid="stChatMessage"]:has(
+        [data-testid="chatAvatarIcon-user"]
+    ) {
+        background-color: #eaf4ff;
+    }
+
+
+    /* =====================================================
+       Chat Input
+       ===================================================== */
+
+    [data-testid="stChatInput"] {
+        padding-bottom: 10px;
+    }
+
+
+    [data-testid="stChatInput"] textarea {
+        border-radius: 18px !important;
+        border: 1px solid #cbdff5 !important;
+        background: white !important;
+        min-height: 52px !important;
+        font-size: 14px !important;
+    }
+
+
+    [data-testid="stChatInput"] textarea:focus {
+        border-color: #4e93db !important;
+        box-shadow: 0 0 0 2px rgba(78, 147, 219, 0.12) !important;
+    }
+
+
+    /* =====================================================
+       구분선
+       ===================================================== */
+
+    hr {
+        border: none;
+        border-top: 1px solid #dce5ef;
+        margin-top: 18px;
+        margin-bottom: 18px;
+    }
+
+
+    /* =====================================================
+       모바일
+       ===================================================== */
+
+    @media (max-width: 600px) {
+
+        .main .block-container {
+            padding-left: 14px;
+            padding-right: 14px;
+            padding-top: 10px;
+            padding-bottom: 70px;
+        }
+
+
+        .top-company {
+            font-size: 16px;
+        }
+
+
+        .top-title {
+            font-size: 27px;
+        }
+
+
+        .ai-avatar {
+            font-size: 62px;
+            margin-top: 15px;
+        }
+
+
+        .ai-greeting {
+            font-size: 22px;
+        }
+
+
+        .welcome-card {
+            border-radius: 19px;
+            padding: 16px;
+        }
+
+
+        div.stButton > button {
             min-height: 46px !important;
-            height: auto !important;
-            padding: 9px 13px !important;
+            font-size: 13px !important;
         }
 
-        .home-screen .stButton > button p {
-            font-size: 14px !important;
-        }
-
-        .home-menu-desc {
-            margin: 3px 7px 11px 7px !important;
-        }
     }
+
     </style>
     """,
     unsafe_allow_html=True
@@ -608,63 +702,58 @@ def _github_download(url):
         return response.read()
 
 
-def download_notice_template():
-    data = _github_download(
-        HWPX_TEMPLATE_URL
-    )
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_notice_template_bytes():
+    """
+    GitHub의 HWPX 양식을 1시간 캐시한다.
+    안내문을 만들 때마다 다시 다운로드하지 않도록 해 속도를 높인다.
+    """
+    data = _github_download(HWPX_TEMPLATE_URL)
 
     try:
-        with zipfile.ZipFile(
-            __import__("io").BytesIO(data),
-            "r"
-        ) as z:
+        with zipfile.ZipFile(__import__("io").BytesIO(data), "r") as z:
             names = z.namelist()
-
             if not names or names[0] != "mimetype":
                 raise RuntimeError(
                     "notice_template.hwpx가 정상적인 HWPX가 아닙니다."
                 )
-
             if z.read("mimetype") != b"application/hwp+zip":
                 raise RuntimeError(
                     "HWPX mimetype이 올바르지 않습니다."
                 )
-
             if "Contents/section0.xml" not in names:
                 raise RuntimeError(
                     "HWPX의 section0.xml을 찾지 못했습니다."
                 )
-
-            section = z.read(
-                "Contents/section0.xml"
-            ).decode("utf-8")
-
-            # 새 양식은 반드시 안내내용1~5를 사용
+            section = z.read("Contents/section0.xml").decode("utf-8")
             for i in range(1, 6):
                 if f"{{{{안내내용{i}}}}}" not in section:
                     raise RuntimeError(
-                        f"notice_template.hwpx에 "
-                        f"{{{{안내내용{i}}}}}이 없습니다."
+                        f"notice_template.hwpx에 {{{{안내내용{i}}}}}이 없습니다."
                     )
-
     except zipfile.BadZipFile as e:
         raise RuntimeError(
             "GitHub에서 받은 notice_template.hwpx가 손상되었습니다."
         ) from e
 
-    f = tempfile.NamedTemporaryFile(
+    return data
+
+
+def download_notice_template():
+    data = get_notice_template_bytes()
+
+    temp_file = tempfile.NamedTemporaryFile(
         delete=False,
         suffix=".hwpx"
     )
 
     try:
-        f.write(data)
-        f.flush()
+        temp_file.write(data)
+        temp_file.flush()
     finally:
-        f.close()
+        temp_file.close()
 
-    return f.name
-
+    return temp_file.name
 
 def search_official_law_with_ai(
     subject,
@@ -681,32 +770,19 @@ def search_official_law_with_ai(
     law_prompt = f"""
 너는 공동주택 관리사무소의 법령 근거 확인 담당자다.
 
-건명:
-{subject}
+건명: {subject}
+요청: {request_text}
 
-요청:
-{request_text}
+현행 대한민국 법령을 대상으로 안내문에 넣을 수 있는 근거를 판단한다.
+law.go.kr 기준을 우선하되, 실제 확인하지 못한 법령명·조문번호·시행일은 쓰지 않는다.
+근거가 확실하지 않으면 반드시 '근거 미확인'으로 표시한다.
+확인된 경우 법령명, 조문번호, 핵심근거만 짧게 작성한다.
 
-목적:
-안내문에 넣을 수 있는 실제 법령 또는 공식 기준 근거가 있는지 확인한다.
-
-반드시 지켜라.
-1. 대한민국 현행 법령만 대상으로 한다.
-2. 공식 법령 출처는 국가법령정보센터(law.go.kr)를 우선한다.
-3. 실제 확인하지 못한 법률명, 조문번호, 시행일은 절대 만들어내지 않는다.
-4. 관련 근거가 확실하지 않으면 '근거 미확인'이라고 답한다.
-5. 근거가 확인되면 법령명과 조문번호, 안내문에 사용할 수 있는 핵심 취지만 짧게 작성한다.
-6. 안내문 본문에 넣을 수 있는 쉬운 한국어로 요약한다.
-
-출력 형식:
+출력:
 [법령명]
-...
 [조문]
-...
 [핵심근거]
-...
-[확인상태]
-확인 / 근거 미확인
+[확인상태] 확인 / 근거 미확인
 """
 
     last_error = None
@@ -758,41 +834,19 @@ def generate_notice_text_with_law(
     """
 
     prompt = f"""
-너는 공동주택 관리사무소의 공식 안내문 작성 담당자이다.
+너는 공동주택 관리사무소의 공식 안내문 작성 담당자다.
 
-[건명]
-{subject}
+건명: {subject}
+요청: {request_text}
+법령 근거: {law_context if law_context else "확인된 법령 근거 없음"}
 
-[사용자 요청]
-{request_text}
+규칙: 제목 15자 이하, 본문 최대 5줄. 각 줄은 짧고 읽기 쉽게 작성한다. 건명→필요성→법령근거→협조사항 순으로 구성한다. 확인된 법령만 사용하고 조문을 임의로 만들지 않는다. 일시·업체·전화번호·관리소명은 본문에서 반복하지 않는다.
 
-[공식 법령 근거 확인 결과]
-{law_context if law_context else "확인된 법령 근거 없음"}
-
-[작성 규칙]
-1. 제목은 15자 이하.
-2. 안내내용은 무조건 5줄 이내.
-3. 각 줄은 짧고 읽기 쉽게 작성한다.
-4. 한 줄은 공백 제외 약 20~25글자를 목표로 한다.
-5. 건명 → 목적/필요성 → 법령근거 → 협조사항 순으로 작성한다.
-6. 실제 확인된 법령 근거가 있으면 반드시 한 줄에 직접 포함한다.
-7. 법령명과 조문번호는 확인된 경우에만 쓴다.
-8. 확인되지 않은 조문번호는 절대 작성하지 않는다.
-9. 일시·날짜·업체명·전화번호·관리소명은 본문에서 제외한다.
-10. 어려운 법률 표현은 줄이고 입주민이 이해하기 쉽게 쓴다.
-11. 같은 내용 반복 금지.
-12. 본문은 반드시 5줄 이내다.
-
-[출력]
+출력:
 [제목]
 15자 이하
-
 [본문]
-문장1
-문장2
-문장3
-문장4
-문장5
+최대 5줄
 """
 
     for attempt in range(3):
@@ -895,8 +949,8 @@ def create_notice_hwpx(
     lines = list(lines or [])[:5]
     custom_fields = list(custom_fields or [])[:5]
 
-    if len(custom_fields) != 5:
-        raise RuntimeError("사용자 지정 항목은 5개가 필요합니다.")
+    if len(custom_fields) > 5:
+        raise RuntimeError("사용자 지정 항목은 최대 5개까지 입력할 수 있습니다.")
 
     with zipfile.ZipFile(template_path, "r") as zin:
         names = zin.namelist()
@@ -968,14 +1022,29 @@ def create_notice_hwpx(
         for idx in range(5):
             match = target_indices[0]
             paragraph = match.group(0)
-            label, value = custom_fields[idx]
+            if idx < len(custom_fields):
+                label, value = custom_fields[idx]
+                safe_label = html.escape(str(label), quote=False)
+                safe_value = html.escape(str(value), quote=False)
+            else:
+                # 입력하지 않은 나머지 행은 문단 전체를 비워 표시되지 않게 한다.
+                label = ""
+                value = ""
+                safe_label = ""
+                safe_value = ""
 
-            safe_label = html.escape(str(label), quote=False)
-            safe_value = html.escape(str(value), quote=False)
-
-            # 같은 문단 안의 placeholder 두 개만 해당 순서대로 치환
-            new_paragraph = paragraph.replace("{{항목명}}", safe_label, 1)
-            new_paragraph = new_paragraph.replace("{{입력내용}}", safe_value, 1)
+            # 같은 문단의 두 placeholder를
+            # "1. 항목명 : 입력내용" 형식으로 표시한다.
+            if label and value:
+                display_text = f"{idx + 1}. {label} : {value}"
+                safe_display = html.escape(display_text, quote=False)
+                new_paragraph = paragraph.replace("{{항목명}} {{입력내용}}", safe_display, 1)
+                new_paragraph = new_paragraph.replace("{{항목명}}", safe_label, 1)
+                new_paragraph = new_paragraph.replace("{{입력내용}}", safe_value, 1)
+            else:
+                # 입력하지 않은 행은 실제 표시가 남지 않도록 완전히 비운다.
+                new_paragraph = paragraph.replace("{{항목명}}", "", 1)
+                new_paragraph = new_paragraph.replace("{{입력내용}}", "", 1)
 
             # 원본 xml에서 뒤쪽부터 바꿔 위치가 틀어지지 않도록
             # 치환 대상 5개를 뒤에서부터 적용한다.
@@ -1204,7 +1273,7 @@ def show_notice_generator():
         use_container_width=True
     ):
 
-        custom_fields = [
+        all_custom_fields = [
             (str(field1_label).strip(), str(field1_value).strip()),
             (str(field2_label).strip(), str(field2_value).strip()),
             (str(field3_label).strip(), str(field3_value).strip()),
@@ -1212,17 +1281,24 @@ def show_notice_generator():
             (str(field5_label).strip(), str(field5_value).strip()),
         ]
 
+        # 실제 입력이 완료된 항목만 사용한다.
+        # 항목명과 입력내용 중 하나만 입력된 행은 오류로 안내한다.
+        custom_fields = []
+        partial_fields = []
+        for idx, (label, value) in enumerate(all_custom_fields, 1):
+            if label and value:
+                custom_fields.append((label, value))
+            elif label or value:
+                partial_fields.append(f"{idx}번")
+
         missing = []
         if not notice_date.strip():
             missing.append("공고일자")
         if not notice_deadline.strip():
             missing.append("공고기한")
 
-        for idx, (label, value) in enumerate(custom_fields, 1):
-            if not label:
-                missing.append(f"{idx}번 항목명")
-            if not value:
-                missing.append(f"{idx}번 입력내용")
+        if partial_fields:
+            missing.append(" / ".join(partial_fields) + " 항목명과 입력내용 모두 입력")
 
         if not phone.strip():
             missing.append("전화번호")
@@ -1247,7 +1323,11 @@ def show_notice_generator():
                     f"{label}: {value}"
                     for label, value in custom_fields
                 )
-                subject = custom_fields[0][1]
+                subject = (
+                    custom_fields[0][1]
+                    if custom_fields
+                    else "안내문"
+                )
                 law_context = search_official_law_with_ai(
                     subject,
                     request_text + "\n\n[안내문 기본항목]\n" + field_summary
@@ -1280,6 +1360,24 @@ def show_notice_generator():
                 for line in body_lines
             )
 
+            safe_fields = "<br>".join(
+                html.escape(f"{idx}. {label} : {value}")
+                for idx, (label, value) in enumerate(custom_fields, start=1)
+            )
+
+            fields_block = ""
+            if safe_fields:
+                fields_block = f"""
+                <div class="welcome-title" style="margin-top:8px;">항목</div>
+                <div style="font-size:14px;
+                line-height:2.0;
+                color:#334b64;
+                margin-top:8px;
+                margin-bottom:18px;">
+                {safe_fields}
+                </div>
+                """
+
             st.markdown(
                 f"""
                 <div class="welcome-card">
@@ -1288,6 +1386,8 @@ def show_notice_generator():
                 color:#243c56;margin-bottom:18px;">
                 {safe_title}
                 </div>
+
+                {fields_block}
 
                 <div class="welcome-title">안내내용</div>
                 <div style="font-size:14px;
@@ -1412,100 +1512,85 @@ if st.session_state.selected_file is None:
     if st.session_state.rulebook_category is None:
 
         st.markdown(
+            '<div class="ai-avatar">🤖</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            '<div class="ai-greeting">'
+            '대구경북지사 직원 여러분 안녕하세요^^<br>'
+            '무엇을 도와드릴까요?'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            '<div class="ai-description">'
+            '업무에 필요한 기능을 선택해주세요.'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        # -------------------------------------------------
+        # ① 업무지원
+        # -------------------------------------------------
+
+        st.markdown(
             """
-            <div class="home-screen">
-                <div class="home-hero">
-                    <div class="home-hero-title">🤖 기술업무 <span class="ai-blue">AI</span> 챗봇</div>
-                    <div class="home-hero-desc">기술규정 검색부터 안내문 작성까지, AI가 빠르고 정확하게 도와드립니다.</div>
+            <div class="welcome-card">
+                <div class="welcome-title">📝 업무지원</div>
+                <div class="welcome-text">
+                    업무에 필요한 안내문을 AI로 작성합니다.
                 </div>
-                <div class="home-frame">
+            </div>
             """,
             unsafe_allow_html=True
         )
 
-        col1, col2 = st.columns(2, gap="medium")
+        if st.button(
+            "📄 안내문 생성",
+            key="home_notice_menu",
+            use_container_width=True
+        ):
+            st.session_state.show_notice_generator = True
+            st.rerun()
+
+        # -------------------------------------------------
+        # ② 규정집 선택
+        # -------------------------------------------------
+
+        st.markdown(
+            """
+            <div class="welcome-card" style="margin-top:22px;">
+                <div class="welcome-title">📚 규정집 선택</div>
+                <div class="welcome-text">
+                    업무 분야를 먼저 선택한 후 관련 규정집을 선택해주세요.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        col1, col2 = st.columns(2)
 
         with col1:
-            st.markdown('<span class="home-anchor home-blue-anchor"></span>', unsafe_allow_html=True)
-            st.markdown(
-                """
-                <div class="home-panel-head">
-                    <div class="home-circle home-circle-blue">📝</div>
-                    <div>
-                        <div class="home-panel-title blue">업무지원항목</div>
-                        <div class="home-panel-desc">다양한 업무를 AI가 지원합니다.</div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
             if st.button(
-                "📄  안내문 작성   ›",
-                key="home_notice_menu",
-                use_container_width=True
-            ):
-                st.session_state.show_notice_generator = True
-                st.rerun()
-
-            st.markdown(
-                '<div class="home-menu-desc">입력한 내용을 바탕으로 안내문을 작성합니다.</div>',
-                unsafe_allow_html=True
-            )
-
-            st.button(
-                "💬  기타 업무지원   ›",
-                key="home_other_support",
-                use_container_width=True
-            )
-
-            st.markdown(
-                '<div class="home-menu-desc">추가 업무지원 기능을 제공합니다.</div>',
-                unsafe_allow_html=True
-            )
-
-        with col2:
-            st.markdown('<span class="home-anchor home-green-anchor"></span>', unsafe_allow_html=True)
-            st.markdown(
-                """
-                <div class="home-panel-head">
-                    <div class="home-circle home-circle-green">📚</div>
-                    <div>
-                        <div class="home-panel-title green">규정집 선택</div>
-                        <div class="home-panel-desc">찾고자 하는 규정집을 선택해주세요.</div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            if st.button(
-                "🏢  시설업무   ›",
+                "🏢 시설업무",
                 key="rule_category_facility",
                 use_container_width=True
             ):
                 st.session_state.rulebook_category = "시설업무"
                 st.rerun()
 
-            st.markdown(
-                '<div class="home-menu-desc">시설·기계·전기 등 기술 관련 규정집을 확인합니다.</div>',
-                unsafe_allow_html=True
-            )
-
+        with col2:
             if st.button(
-                "📋  행정업무   ›",
+                "📋 행정업무",
                 key="rule_category_admin",
                 use_container_width=True
             ):
                 st.session_state.rulebook_category = "행정업무"
                 st.rerun()
 
-            st.markdown(
-                '<div class="home-menu-desc">행정·인사·예산·평가 등 행정 관련 규정집을 확인합니다.</div>',
-                unsafe_allow_html=True
-            )
-
-        st.markdown('</div></div>', unsafe_allow_html=True)
 
     else:
 
