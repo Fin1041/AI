@@ -1686,19 +1686,6 @@ if st.session_state.selected_file is None:
         col1, col2 = st.columns(2)
 
         with col1:
-            st.markdown(
-                """
-                <div class="home-action-button">
-                    <div class="home-action-title">📄 안내문 생성</div>
-                    <div class="home-action-text">
-                        업무에 필요한 안내문을<br>
-                        AI로 작성합니다.
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
             st.markdown('<div class="home-work-button">', unsafe_allow_html=True)
 
             if st.button(
@@ -1712,19 +1699,6 @@ if st.session_state.selected_file is None:
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col2:
-            st.markdown(
-                """
-                <div class="home-action-button">
-                    <div class="home-action-title">📁 기타업무</div>
-                    <div class="home-action-text">
-                        더 다양한 업무지원 기능을<br>
-                        준비하고 있습니다.
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
             st.markdown('<div class="home-other-button">', unsafe_allow_html=True)
 
             if st.button(
