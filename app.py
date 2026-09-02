@@ -172,16 +172,16 @@ st.markdown(
     .home-shell {
         background: #ffffff;
         border: 1px solid #dfe7f0;
-        border-radius: 22px;
-        padding: 10px;
-        margin-top: 8px;
-        box-shadow: 0 6px 20px rgba(35, 80, 130, 0.06);
+        border-radius: 26px;
+        padding: 14px;
+        margin-top: 10px;
+        box-shadow: 0 8px 28px rgba(35, 80, 130, 0.08);
     }
 
     .home-panel {
-        border-radius: 16px;
-        padding: 16px 16px 13px 16px;
-        min-height: 118px;
+        border-radius: 20px;
+        padding: 22px 18px 14px 18px;
+        min-height: 180px;
         box-sizing: border-box;
     }
 
@@ -196,28 +196,30 @@ st.markdown(
     }
 
     .home-panel-icon {
-        font-size: 28px;
+        font-size: 38px;
         line-height: 1;
-        margin-bottom: 7px;
+        margin-bottom: 10px;
     }
 
     .home-panel-title {
-        font-size: 17px;
+        font-size: 20px;
         font-weight: 800;
         color: #20364f;
-        margin-bottom: 5px;
-        letter-spacing: -0.5px;
+        margin-bottom: 7px;
+        letter-spacing: -0.8px;
     }
 
     .home-panel-text {
-        font-size: 12px;
-        color: #6b7b8f;
-        line-height: 1.45;
-        word-break: keep-all;
+        font-size: 13px;
+        color: #66758a;
+        line-height: 1.6;
     }
 
     .home-menu-label {
-        display: none;
+        font-size: 12px;
+        font-weight: 700;
+        color: #6f7e90;
+        margin: 10px 0 7px 2px;
     }
 
     /* =====================================================
@@ -1609,12 +1611,13 @@ if st.session_state.selected_file is None:
                     <div class="home-panel-icon">📝</div>
                     <div class="home-panel-title">업무지원항목</div>
                     <div class="home-panel-text">
-                        필요한 업무 문서를<br>AI로 간편하게 작성합니다.
+                        업무에 필요한 안내문을<br>AI로 작성합니다.
                     </div>
                 </div>''',
                 unsafe_allow_html=True
             )
 
+            st.markdown('<div class="home-menu-label">업무지원</div>', unsafe_allow_html=True)
             if st.button(
                 "📄 안내문 생성",
                 key="home_notice_menu",
@@ -1629,12 +1632,13 @@ if st.session_state.selected_file is None:
                     <div class="home-panel-icon">📚</div>
                     <div class="home-panel-title">규정집 선택</div>
                     <div class="home-panel-text">
-                        업무 분야를 선택하면<br>관련 규정집을 확인할 수 있습니다.
+                        업무 분야를 선택한 후<br>관련 규정집을 검색합니다.
                     </div>
                 </div>''',
                 unsafe_allow_html=True
             )
 
+            st.markdown('<div class="home-menu-label">업무 분야</div>', unsafe_allow_html=True)
             if st.button(
                 "🏢 시설업무",
                 key="rule_category_facility",
