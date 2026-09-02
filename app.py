@@ -989,8 +989,8 @@ def create_notice_hwpx(
     lines = list(lines or [])[:5]
     custom_fields = list(custom_fields or [])[:5]
 
-    if len(custom_fields) != 5:
-        raise RuntimeError("사용자 지정 항목은 5개가 필요합니다.")
+    if len(custom_fields) > 5:
+        raise RuntimeError("사용자 지정 항목은 최대 5개까지 입력할 수 있습니다.")
 
     with zipfile.ZipFile(template_path, "r") as zin:
         names = zin.namelist()
@@ -1062,10 +1062,16 @@ def create_notice_hwpx(
         for idx in range(5):
             match = target_indices[0]
             paragraph = match.group(0)
-            label, value = custom_fields[idx]
-
-            safe_label = html.escape(str(label), quote=False)
-            safe_value = html.escape(str(value), quote=False)
+            if idx < len(custom_fields):
+                label, value = custom_fields[idx]
+                safe_label = html.escape(str(label), quote=False)
+                safe_value = html.escape(str(value), quote=False)
+            else:
+                # 입력하지 않은 나머지 행은 문단 전체를 비워 표시되지 않게 한다.
+                label = ""
+                value = ""
+                safe_label = ""
+                safe_value = ""
 
             # 같은 문단 안의 placeholder 두 개만 해당 순서대로 치환
             new_paragraph = paragraph.replace("{{항목명}}", safe_label, 1)
@@ -1298,7 +1304,7 @@ def show_notice_generator():
         use_container_width=True
     ):
 
-        custom_fields = [
+        all_custom_fields = [
             (str(field1_label).strip(), str(field1_value).strip()),
             (str(field2_label).strip(), str(field2_value).strip()),
             (str(field3_label).strip(), str(field3_value).strip()),
@@ -1306,17 +1312,24 @@ def show_notice_generator():
             (str(field5_label).strip(), str(field5_value).strip()),
         ]
 
+        # 실제 입력이 완료된 항목만 사용한다.
+        # 항목명과 입력내용 중 하나만 입력된 행은 오류로 안내한다.
+        custom_fields = []
+        partial_fields = []
+        for idx, (label, value) in enumerate(all_custom_fields, 1):
+            if label and value:
+                custom_fields.append((label, value))
+            elif label or value:
+                partial_fields.append(f"{idx}번")
+
         missing = []
         if not notice_date.strip():
             missing.append("공고일자")
         if not notice_deadline.strip():
             missing.append("공고기한")
 
-        for idx, (label, value) in enumerate(custom_fields, 1):
-            if not label:
-                missing.append(f"{idx}번 항목명")
-            if not value:
-                missing.append(f"{idx}번 입력내용")
+        if partial_fields:
+            missing.append(" / ".join(partial_fields) + " 항목명과 입력내용 모두 입력")
 
         if not phone.strip():
             missing.append("전화번호")
@@ -1341,7 +1354,11 @@ def show_notice_generator():
                     f"{label}: {value}"
                     for label, value in custom_fields
                 )
-                subject = custom_fields[0][1]
+                subject = (
+                    custom_fields[0][1]
+                    if custom_fields
+                    else "안내문"
+                )
                 law_context = search_official_law_with_ai(
                     subject,
                     request_text + "\n\n[안내문 기본항목]\n" + field_summary
