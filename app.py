@@ -358,6 +358,142 @@ st.markdown(
 
     }
 
+
+    /* =====================================================
+       첫 화면 전용 디자인
+       ※ 기존 기능 및 기존 화면 디자인은 변경하지 않음
+       ===================================================== */
+
+    .home-section {
+        border-radius: 24px;
+        padding: 22px 20px 20px 20px;
+        margin-top: 20px;
+        margin-bottom: 18px;
+        border: 1px solid;
+        box-shadow: 0 6px 22px rgba(35, 80, 130, 0.06);
+    }
+
+    .home-section-work {
+        background: linear-gradient(135deg, #eef6ff 0%, #f8fbff 100%);
+        border-color: #d7e7f8;
+    }
+
+    .home-section-rule {
+        background: linear-gradient(135deg, #effaf5 0%, #fbfdfb 100%);
+        border-color: #d6eee1;
+    }
+
+    .home-section-title {
+        font-size: 19px;
+        font-weight: 800;
+        margin-bottom: 5px;
+        letter-spacing: -0.5px;
+    }
+
+    .home-section-work .home-section-title {
+        color: #1765b5;
+    }
+
+    .home-section-rule .home-section-title {
+        color: #17784e;
+    }
+
+    .home-section-description {
+        font-size: 13px;
+        color: #65778b;
+        line-height: 1.6;
+        margin-bottom: 15px;
+    }
+
+    .home-action-button {
+        background: #ffffff;
+        border: 1px solid #d8e5f2;
+        border-radius: 18px;
+        padding: 17px 16px;
+        min-height: 105px;
+        box-shadow: 0 4px 15px rgba(35, 80, 130, 0.05);
+    }
+
+    .home-action-title {
+        font-size: 16px;
+        font-weight: 800;
+        margin-bottom: 7px;
+    }
+
+    .home-action-text {
+        font-size: 12px;
+        color: #6d7d8f;
+        line-height: 1.55;
+    }
+
+    .home-work-button div.stButton > button {
+        border-color: #9fc7f1 !important;
+        background: #ffffff !important;
+        color: #1765b5 !important;
+        font-weight: 700 !important;
+    }
+
+    .home-work-button div.stButton > button:hover {
+        background: #edf6ff !important;
+        border-color: #4d96df !important;
+        color: #125a9f !important;
+    }
+
+    .home-other-button div.stButton > button {
+        border-color: #c9b9ee !important;
+        background: #ffffff !important;
+        color: #7048b7 !important;
+        font-weight: 700 !important;
+    }
+
+    .home-other-button div.stButton > button:hover {
+        background: #f6f1ff !important;
+        border-color: #9b7bd6 !important;
+        color: #633da8 !important;
+    }
+
+    .home-rule-facility div.stButton > button {
+        border-color: #a8d9bf !important;
+        background: #ffffff !important;
+        color: #17784e !important;
+        font-weight: 700 !important;
+    }
+
+    .home-rule-facility div.stButton > button:hover {
+        background: #eefaf4 !important;
+        border-color: #58ad7d !important;
+        color: #116a43 !important;
+    }
+
+    .home-rule-admin div.stButton > button {
+        border-color: #e2d1ad !important;
+        background: #ffffff !important;
+        color: #80602c !important;
+        font-weight: 700 !important;
+    }
+
+    .home-rule-admin div.stButton > button:hover {
+        background: #fff9ed !important;
+        border-color: #caa85f !important;
+        color: #6e501f !important;
+    }
+
+    @media (max-width: 600px) {
+        .home-section {
+            padding: 18px 14px 16px 14px;
+            border-radius: 20px;
+        }
+
+        .home-section-title {
+            font-size: 17px;
+        }
+
+        .home-action-button {
+            min-height: 92px;
+            padding: 14px;
+        }
+    }
+
     </style>
     """,
     unsafe_allow_html=True
@@ -1532,38 +1668,83 @@ if st.session_state.selected_file is None:
         )
 
         # -------------------------------------------------
-        # ① 업무지원
+        # ① 업무지원 영역
         # -------------------------------------------------
 
         st.markdown(
             """
-            <div class="welcome-card">
-                <div class="welcome-title">📝 업무지원</div>
-                <div class="welcome-text">
-                    업무에 필요한 안내문을 AI로 작성합니다.
+            <div class="home-section home-section-work">
+                <div class="home-section-title">📝 업무지원</div>
+                <div class="home-section-description">
+                    업무에 필요한 기능을 이용해 보세요.
                 </div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-        if st.button(
-            "📄 안내문 생성",
-            key="home_notice_menu",
-            use_container_width=True
-        ):
-            st.session_state.show_notice_generator = True
-            st.rerun()
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown(
+                """
+                <div class="home-action-button">
+                    <div class="home-action-title">📄 안내문 생성</div>
+                    <div class="home-action-text">
+                        업무에 필요한 안내문을<br>
+                        AI로 작성합니다.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown('<div class="home-work-button">', unsafe_allow_html=True)
+
+            if st.button(
+                "안내문 생성  →",
+                key="home_notice_menu",
+                use_container_width=True
+            ):
+                st.session_state.show_notice_generator = True
+                st.rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(
+                """
+                <div class="home-action-button">
+                    <div class="home-action-title">📁 기타업무</div>
+                    <div class="home-action-text">
+                        더 다양한 업무지원 기능을<br>
+                        준비하고 있습니다.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown('<div class="home-other-button">', unsafe_allow_html=True)
+
+            if st.button(
+                "기타업무  →",
+                key="home_other_menu",
+                use_container_width=True
+            ):
+                st.info("🚧 기타업무 기능은 현재 준비중입니다.")
+
+            st.markdown("</div>", unsafe_allow_html=True)
 
         # -------------------------------------------------
-        # ② 규정집 선택
+        # ② 규정집 선택 영역
         # -------------------------------------------------
 
         st.markdown(
             """
-            <div class="welcome-card" style="margin-top:22px;">
-                <div class="welcome-title">📚 규정집 선택</div>
-                <div class="welcome-text">
+            <div class="home-section home-section-rule">
+                <div class="home-section-title">📚 규정집 선택</div>
+                <div class="home-section-description">
                     업무 분야를 먼저 선택한 후 관련 규정집을 선택해주세요.
                 </div>
             </div>
@@ -1574,22 +1755,30 @@ if st.session_state.selected_file is None:
         col1, col2 = st.columns(2)
 
         with col1:
+            st.markdown('<div class="home-rule-facility">', unsafe_allow_html=True)
+
             if st.button(
-                "🏢 시설업무",
+                "🏢  시설업무  →",
                 key="rule_category_facility",
                 use_container_width=True
             ):
                 st.session_state.rulebook_category = "시설업무"
                 st.rerun()
 
+            st.markdown("</div>", unsafe_allow_html=True)
+
         with col2:
+            st.markdown('<div class="home-rule-admin">', unsafe_allow_html=True)
+
             if st.button(
-                "📋 행정업무",
+                "📋  행정업무  →",
                 key="rule_category_admin",
                 use_container_width=True
             ):
                 st.session_state.rulebook_category = "행정업무"
                 st.rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
 
 
     else:
