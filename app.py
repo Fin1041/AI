@@ -973,28 +973,35 @@ def create_notice_hwpx(
     office
 ):
     """
-    notice_template.hwpx의 실제 {{안내내용1}}~{{안내내용5}}
-    문단에 한 줄씩 삽입한다.
+    현재 notice_template.hwpx의 구조에 맞춰 안전하게 생성한다.
+
+    실제 양식 구조:
+      {{제목}}
+      {{안내내용1}} ~ {{안내내용5}}
+      {{항목명}} {{입력내용}}  x 5
+      {{전화번호}}
+      {{관리소명}}
+
+    같은 placeholder가 5번 반복되므로, 문단 단위로 순서대로
+    1~5번 항목을 치환한다.
     """
 
-    lines = lines[:5]
+    lines = list(lines or [])[:5]
+    custom_fields = list(custom_fields or [])[:5]
 
-    with zipfile.ZipFile(
-        template_path,
-        "r"
-    ) as zin:
+    if len(custom_fields) != 5:
+        raise RuntimeError("사용자 지정 항목은 5개가 필요합니다.")
 
+    with zipfile.ZipFile(template_path, "r") as zin:
         names = zin.namelist()
 
         if not names or names[0] != "mimetype":
-            raise RuntimeError(
-                "원본 HWPX 구조가 올바르지 않습니다."
-            )
+            raise RuntimeError("원본 HWPX 구조가 올바르지 않습니다.")
 
-        data = {
-            name: zin.read(name)
-            for name in names
-        }
+        if zin.read("mimetype") != b"application/hwp+zip":
+            raise RuntimeError("원본 HWPX mimetype이 올바르지 않습니다.")
+
+        data = {name: zin.read(name) for name in names}
 
         replacements = {
             "{{공고일자}}": notice_date,
@@ -1004,56 +1011,94 @@ def create_notice_hwpx(
             "{{관리소명}}": office,
         }
 
+        # 일반 placeholder 치환
         for name in names:
-
             if not name.lower().endswith(".xml"):
                 continue
 
-            xml = data[name].decode(
-                "utf-8"
-            )
+            try:
+                xml = data[name].decode("utf-8")
+            except UnicodeDecodeError:
+                continue
 
             for key, value in replacements.items():
                 xml = xml.replace(
                     key,
-                    html.escape(
-                        str(value),
-                        quote=False
-                    )
+                    html.escape(str(value), quote=False)
                 )
 
-            data[name] = xml.encode(
-                "utf-8"
-            )
+            data[name] = xml.encode("utf-8")
 
         section = "Contents/section0.xml"
-        xml = data[section].decode(
-            "utf-8"
+        if section not in data:
+            raise RuntimeError("HWPX에서 Contents/section0.xml을 찾지 못했습니다.")
+
+        xml = data[section].decode("utf-8")
+
+        # -------------------------------------------------
+        # 1~5번 사용자 항목
+        # 현재 양식에는 동일한 {{항목명}} / {{입력내용}}이
+        # 5개 문단에 반복되어 있으므로 각 문단을 순서대로 치환한다.
+        # -------------------------------------------------
+        paragraphs = list(
+            re.finditer(
+                r"<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?</hp:p>",
+                xml,
+                re.DOTALL
+            )
         )
 
-        # 기존 HWPX의 1~3번 문장은 유지하되,
-        # 항목명과 입력값만 사용자가 정한 내용으로 교체한다.
-        fixed_lines = {
-            1: "1.  건   명: {{건 명}}",
-            2: "2.  일   시: {{일 시}}",
-            3: "3.  업   체: {{업 체}}",
-        }
+        target_indices = []
+        for m in paragraphs:
+            paragraph = m.group(0)
+            if "{{항목명}}" in paragraph and "{{입력내용}}" in paragraph:
+                target_indices.append(m)
 
-        for i, (label, value) in enumerate(custom_fields, 1):
-            old_line = fixed_lines[i]
-            new_line = (
-                f"{i}.  "
-                f"{html.escape(label, quote=False)}: "
-                f"{html.escape(value, quote=False)}"
+        if len(target_indices) < 5:
+            raise RuntimeError(
+                "HWPX에서 {{항목명}}/{{입력내용}} 5개 항목 위치를 모두 찾지 못했습니다."
             )
-            if old_line not in xml:
-                raise RuntimeError(
-                    f"HWPX에서 기존 {i}번 항목 위치를 찾지 못했습니다."
+
+        for idx in range(5):
+            match = target_indices[0]
+            paragraph = match.group(0)
+            label, value = custom_fields[idx]
+
+            safe_label = html.escape(str(label), quote=False)
+            safe_value = html.escape(str(value), quote=False)
+
+            # 같은 문단 안의 placeholder 두 개만 해당 순서대로 치환
+            new_paragraph = paragraph.replace("{{항목명}}", safe_label, 1)
+            new_paragraph = new_paragraph.replace("{{입력내용}}", safe_value, 1)
+
+            # 원본 xml에서 뒤쪽부터 바꿔 위치가 틀어지지 않도록
+            # 치환 대상 5개를 뒤에서부터 적용한다.
+            xml = (
+                xml[:match.start()]
+                + new_paragraph
+                + xml[match.end():]
+            )
+
+            # 앞의 치환으로 match 위치가 변했으므로 다음 반복에서
+            # 다시 현재 XML 기준으로 항목 문단을 찾는다.
+            if idx < 4:
+                paragraphs = list(
+                    re.finditer(
+                        r"<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?</hp:p>",
+                        xml,
+                        re.DOTALL
+                    )
                 )
-            xml = xml.replace(old_line, new_line, 1)
+                target_indices = [
+                    m for m in paragraphs
+                    if "{{항목명}}" in m.group(0) and "{{입력내용}}" in m.group(0)
+                ]
 
+        # -------------------------------------------------
+        # 안내내용1~5
+        # 기존 문단과 run 구조를 유지하면서 텍스트만 교체한다.
+        # -------------------------------------------------
         for i in range(1, 6):
-
             key = f"{{{{안내내용{i}}}}}"
 
             p = re.search(
@@ -1067,9 +1112,7 @@ def create_notice_hwpx(
             )
 
             if not p:
-                raise RuntimeError(
-                    f"{key} 문단을 찾지 못했습니다."
-                )
+                raise RuntimeError(f"{key} 문단을 찾지 못했습니다.")
 
             paragraph = p.group(0)
 
@@ -1082,92 +1125,75 @@ def create_notice_hwpx(
             )
 
             if not t:
-                raise RuntimeError(
-                    f"{key}의 기존 텍스트 영역을 찾지 못했습니다."
-                )
+                raise RuntimeError(f"{key}의 기존 텍스트 영역을 찾지 못했습니다.")
 
-            value = (
-                lines[i-1]
-                if i <= len(lines)
-                else ""
-            )
-
-            paragraph = (
-                paragraph[:t.start()]
-                + "<hp:t>"
-                + html.escape(
-                    value,
-                    quote=False
-                )
+            value = lines[i - 1] if i <= len(lines) else ""
+            new_t = (
+                "<hp:t>"
+                + html.escape(str(value), quote=False)
                 + "</hp:t>"
-                + paragraph[t.end():]
             )
 
-            xml = (
-                xml[:p.start()]
-                + paragraph
-                + xml[p.end():]
-            )
+            paragraph = paragraph[:t.start()] + new_t + paragraph[t.end():]
+            xml = xml[:p.start()] + paragraph + xml[p.end():]
 
+        # 수정된 XML 자체 검증
         try:
             ET.fromstring(xml)
         except ET.ParseError as e:
-            raise RuntimeError(
-                "수정된 HWPX XML 검증 실패: "
-                + str(e)
-            )
+            raise RuntimeError("수정된 HWPX XML 검증 실패: " + str(e))
 
-        data[section] = xml.encode(
-            "utf-8"
-        )
+        # 모든 placeholder가 남아있는지 확인
+        required_markers = [
+            "{{제목}}",
+            "{{안내내용1}}", "{{안내내용2}}", "{{안내내용3}}",
+            "{{안내내용4}}", "{{안내내용5}}",
+            "{{항목명}}", "{{입력내용}}",
+            "{{전화번호}}", "{{관리소명}}"
+        ]
 
-        with zipfile.ZipFile(
-            output_path,
-            "w"
-        ) as zout:
+        # {{항목명}}, {{입력내용}}은 0개여야 한다.
+        if "{{항목명}}" in xml or "{{입력내용}}" in xml:
+            raise RuntimeError("사용자 지정 항목 치환이 완료되지 않았습니다.")
 
+        for marker in [
+            "{{제목}}",
+            "{{안내내용1}}", "{{안내내용2}}", "{{안내내용3}}",
+            "{{안내내용4}}", "{{안내내용5}}"
+        ]:
+            if marker in xml:
+                raise RuntimeError(f"{marker} 치환이 완료되지 않았습니다.")
+
+        data[section] = xml.encode("utf-8")
+
+        # HWPX ZIP 구조 유지
+        with zipfile.ZipFile(output_path, "w") as zout:
             for name in names:
-
-                info = copy.copy(
-                    zin.getinfo(name)
-                )
-
+                info = copy.copy(zin.getinfo(name))
                 if name == "mimetype":
                     info.compress_type = zipfile.ZIP_STORED
+                zout.writestr(info, data[name])
 
-                zout.writestr(
-                    info,
-                    data[name]
+    # 최종 HWPX 무결성 검증
+    with zipfile.ZipFile(output_path, "r") as check:
+        if not check.namelist() or check.namelist()[0] != "mimetype":
+            raise RuntimeError("완성 HWPX mimetype 위치 오류")
+        if check.read("mimetype") != b"application/hwp+zip":
+            raise RuntimeError("완성 HWPX mimetype 오류")
+        if check.testzip() is not None:
+            raise RuntimeError("완성 HWPX ZIP 무결성 검사 실패")
+
+        final_xml = check.read(section).decode("utf-8")
+        ET.fromstring(final_xml)
+
+        # 실제 사용자 입력이 5개 모두 들어갔는지 확인
+        for label, value in custom_fields:
+            if str(label) not in final_xml or str(value) not in final_xml:
+                raise RuntimeError(
+                    f"완성 HWPX에 사용자 항목이 정상 반영되지 않았습니다: {label} / {value}"
                 )
 
-    with zipfile.ZipFile(
-        output_path,
-        "r"
-    ) as check:
-
-        if check.namelist()[0] != "mimetype":
-            raise RuntimeError(
-                "완성 HWPX mimetype 위치 오류"
-            )
-
-        if check.read("mimetype") != b"application/hwp+zip":
-            raise RuntimeError(
-                "완성 HWPX mimetype 오류"
-            )
-
-        if check.testzip() is not None:
-            raise RuntimeError(
-                "완성 HWPX ZIP 무결성 검사 실패"
-            )
-
-        ET.fromstring(
-            check.read(
-                section
-            ).decode("utf-8")
-        )
-
     return output_path
-
 
 def show_notice_generator():
 
@@ -1184,7 +1210,7 @@ def show_notice_generator():
     st.info(
         "관련 법령의 최신 근거를 확인하여 "
         "짧고 읽기 쉬운 안내문을 작성합니다. "
-        "1~3번 항목명도 직접 설정할 수 있습니다."
+        "1~5번 항목명과 입력내용을 직접 설정할 수 있습니다."
     )
 
     notice_date = st.text_input(
@@ -1199,52 +1225,50 @@ def show_notice_generator():
         key="notice_deadline_law"
     )
 
-    st.markdown("**③~⑤ 기본항목을 사용자가 직접 지정할 수 있습니다.**")
+    st.markdown("**③~⑦ 안내문 항목을 사용자가 직접 지정할 수 있습니다.**")
 
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        field1_label = st.text_input(
-            "1. 항목명",
-            value="건명",
-            placeholder="예: 건명 / 점검내용 / 작업명",
-            key="notice_field1_label"
-        )
-    with col2:
-        field1_value = st.text_input(
-            "1. 입력내용",
-            placeholder="예: 보일러 세관",
-            key="notice_field1_value"
-        )
+    field1_label = ""
+    field1_value = ""
+    field2_label = ""
+    field2_value = ""
+    field3_label = ""
+    field3_value = ""
+    field4_label = ""
+    field4_value = ""
+    field5_label = ""
+    field5_value = ""
 
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        field2_label = st.text_input(
-            "2. 항목명",
-            value="일시",
-            placeholder="예: 일시 / 작업장소 / 대상",
-            key="notice_field2_label"
-        )
-    with col2:
-        field2_value = st.text_input(
-            "2. 입력내용",
-            placeholder="예: 2026년 9월 10일 09:00~17:00",
-            key="notice_field2_value"
-        )
+    for idx, (label_key, value_key, label_example, value_example) in enumerate([
+        ("notice_custom1_label_v3", "notice_custom1_value_v3", "예: 작업내용", "예: 보일러 세관"),
+        ("notice_custom2_label_v3", "notice_custom2_value_v3", "예: 작업장소", "예: 지하 기계실"),
+        ("notice_custom3_label_v3", "notice_custom3_value_v3", "예: 작업일시", "예: 2026년 9월 10일 09:00~17:00"),
+        ("notice_custom4_label_v3", "notice_custom4_value_v3", "예: 담당부서", "예: 시설관리팀"),
+        ("notice_custom5_label_v3", "notice_custom5_value_v3", "예: 문의사항", "예: 관리사무소로 문의"),
+    ], start=1):
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            label_value = st.text_input(
+                f"{idx}. 항목명",
+                placeholder=label_example,
+                key=label_key
+            )
+        with col2:
+            value_value = st.text_input(
+                f"{idx}. 입력내용",
+                placeholder=value_example,
+                key=value_key
+            )
 
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        field3_label = st.text_input(
-            "3. 항목명",
-            value="업체",
-            placeholder="예: 업체 / 담당부서 / 담당자",
-            key="notice_field3_label"
-        )
-    with col2:
-        field3_value = st.text_input(
-            "3. 입력내용",
-            placeholder="예: ○○설비",
-            key="notice_field3_value"
-        )
+        if idx == 1:
+            field1_label, field1_value = label_value, value_value
+        elif idx == 2:
+            field2_label, field2_value = label_value, value_value
+        elif idx == 3:
+            field3_label, field3_value = label_value, value_value
+        elif idx == 4:
+            field4_label, field4_value = label_value, value_value
+        else:
+            field5_label, field5_value = label_value, value_value
 
     phone = st.text_input(
         "⑥ 전화번호",
@@ -1278,6 +1302,8 @@ def show_notice_generator():
             (str(field1_label).strip(), str(field1_value).strip()),
             (str(field2_label).strip(), str(field2_value).strip()),
             (str(field3_label).strip(), str(field3_value).strip()),
+            (str(field4_label).strip(), str(field4_value).strip()),
+            (str(field5_label).strip(), str(field5_value).strip()),
         ]
 
         missing = []
