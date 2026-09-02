@@ -740,7 +740,25 @@ def get_notice_template_bytes():
 
 
 def download_notice_template():
+    """
+    캐시된 HWPX bytes를 안전한 임시 파일로 저장하고 경로를 반환한다.
+    캐시에서 bytes 자체를 보관하므로 파일 객체의 seek 포인터 문제를 피한다.
+    """
     data = get_notice_template_bytes()
+    if not data:
+        raise RuntimeError("HWPX 양식 데이터를 가져오지 못했습니다.")
+
+    temp_file = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".hwpx"
+    )
+    try:
+        temp_file.write(data)
+        temp_file.flush()
+    finally:
+        temp_file.close()
+
+    return temp_file.name
 
 def search_official_law_with_ai(
     subject,
