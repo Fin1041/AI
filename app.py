@@ -166,6 +166,135 @@ st.markdown(
 
 
     /* =====================================================
+       첫 화면 앱형 카드 디자인
+       ※ 첫 화면에서만 사용하며 기존 기능은 변경하지 않음
+       ===================================================== */
+
+    .home-feature-card {
+        min-height: 155px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 20px 18px 14px 18px;
+        margin-bottom: 0;
+    }
+
+    .home-feature-icon {
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 31px;
+        margin-bottom: 10px;
+    }
+
+    .home-feature-icon.blue {
+        background: #e8f2ff;
+    }
+
+    .home-feature-icon.green {
+        background: #e7f8ef;
+    }
+
+    .home-feature-title {
+        font-size: 18px;
+        font-weight: 800;
+        margin-bottom: 6px;
+    }
+
+    .home-feature-title.blue {
+        color: #1765c0;
+    }
+
+    .home-feature-title.green {
+        color: #15905b;
+    }
+
+    .home-feature-text {
+        color: #718096;
+        font-size: 12px;
+        line-height: 1.55;
+        min-height: 38px;
+    }
+
+    .home-feature-button-blue button {
+        background: #2878dc !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 11px !important;
+        min-height: 42px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 12px rgba(40, 120, 220, 0.18) !important;
+    }
+
+    .home-feature-button-blue button:hover {
+        background: #1765c0 !important;
+        color: white !important;
+    }
+
+    .home-feature-button-green button {
+        background: #19a86b !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 11px !important;
+        min-height: 42px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 12px rgba(25, 168, 107, 0.18) !important;
+    }
+
+    .home-feature-button-green button:hover {
+        background: #128a56 !important;
+        color: white !important;
+    }
+
+    /* 기능 카드 전체를 실제 앱 카드처럼 보이게 함 */
+    div[data-testid="column"]:has(.home-feature-card) {
+        background: #ffffff;
+        border: 1px solid #e0e9f4;
+        border-radius: 20px;
+        padding: 8px 14px 14px 14px;
+        box-shadow: 0 5px 18px rgba(35, 80, 130, 0.06);
+    }
+
+    .home-category-label {
+        text-align: center;
+        padding: 13px 8px 3px 8px;
+        font-size: 15px;
+        font-weight: 800;
+        color: #29435f;
+    }
+
+    .home-category-icon {
+        font-size: 24px;
+        margin-bottom: 3px;
+    }
+
+    div[data-testid="column"]:has(.home-category-label) {
+        background: #ffffff;
+        border: 1px solid #dce7f4;
+        border-radius: 15px;
+        padding: 2px 10px 10px 10px;
+        box-shadow: 0 3px 12px rgba(35, 80, 130, 0.04);
+    }
+
+    div[data-testid="column"]:has(.home-category-label) button {
+        min-height: 40px !important;
+        border-radius: 10px !important;
+        background: #f8fbff !important;
+        color: #29435f !important;
+    }
+
+    div[data-testid="column"]:has(.home-category-label) button:hover {
+        background: #eef6ff !important;
+        border-color: #8dbcf0 !important;
+        color: #1765b5 !important;
+    }
+
+    /* =====================================================
        추천 질문 제목
        ===================================================== */
 
@@ -1532,39 +1661,69 @@ if st.session_state.selected_file is None:
         )
 
         # -------------------------------------------------
-        # ① 업무지원
+        # ① 업무지원 / 안내문 생성
         # -------------------------------------------------
 
-        st.markdown(
-            """
-            <div class="welcome-card">
-                <div class="welcome-title">📝 업무지원</div>
-                <div class="welcome-text">
-                    업무에 필요한 안내문을 AI로 작성합니다.
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown(
+                """
+                <div class="home-feature-card">
+                    <div class="home-feature-icon blue">📝</div>
+                    <div class="home-feature-title blue">안내문 생성</div>
+                    <div class="home-feature-text">
+                        업무에 필요한 안내문을<br>
+                        AI로 빠르게 작성합니다.
+                    </div>
                 </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+                """,
+                unsafe_allow_html=True
+            )
 
-        if st.button(
-            "📄 안내문 생성",
-            key="home_notice_menu",
-            use_container_width=True
-        ):
-            st.session_state.show_notice_generator = True
-            st.rerun()
+            if st.button(
+                "📄  바로가기  →",
+                key="home_notice_menu",
+                use_container_width=True
+            ):
+                st.session_state.show_notice_generator = True
+                st.rerun()
+
+        with col2:
+            st.markdown(
+                """
+                <div class="home-feature-card">
+                    <div class="home-feature-icon green">📚</div>
+                    <div class="home-feature-title green">규정집 선택</div>
+                    <div class="home-feature-text">
+                        관련 규정집을 선택하고<br>
+                        궁금한 내용을 검색합니다.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            if st.button(
+                "📚  시설업무 바로가기  →",
+                key="home_rulebook_menu",
+                use_container_width=True
+            ):
+                st.session_state.rulebook_category = "시설업무"
+                st.rerun()
+
+        st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
         # -------------------------------------------------
-        # ② 규정집 선택
+        # ② 규정집 분야 선택
         # -------------------------------------------------
 
         st.markdown(
             """
-            <div class="welcome-card" style="margin-top:22px;">
-                <div class="welcome-title">📚 규정집 선택</div>
+            <div class="welcome-card" style="margin-top:4px;margin-bottom:14px;">
+                <div class="welcome-title">📚 규정집 분야 선택</div>
                 <div class="welcome-text">
-                    업무 분야를 먼저 선택한 후 관련 규정집을 선택해주세요.
+                    업무 분야를 선택하면 관련 규정집을 확인할 수 있습니다.
                 </div>
             </div>
             """,
@@ -1574,8 +1733,16 @@ if st.session_state.selected_file is None:
         col1, col2 = st.columns(2)
 
         with col1:
+            st.markdown(
+                '<div class="home-category-label">'
+                '<div class="home-category-icon">🏢</div>'
+                '시설업무'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
             if st.button(
-                "🏢 시설업무",
+                "시설업무 규정집  →",
                 key="rule_category_facility",
                 use_container_width=True
             ):
@@ -1583,8 +1750,16 @@ if st.session_state.selected_file is None:
                 st.rerun()
 
         with col2:
+            st.markdown(
+                '<div class="home-category-label">'
+                '<div class="home-category-icon">📋</div>'
+                '행정업무'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
             if st.button(
-                "📋 행정업무",
+                "행정업무 규정집  →",
                 key="rule_category_admin",
                 use_container_width=True
             ):
@@ -1593,6 +1768,7 @@ if st.session_state.selected_file is None:
 
 
     else:
+
 
         # -------------------------------------------------
         # 규정집 선택 화면
