@@ -524,18 +524,20 @@ if "rulebook_category" not in st.session_state:
 
 
 
-st.markdown(
-    """
-    <div style="display:flex; align-items:center; gap:12px;">
-        <img src="judi.png"
-             style="width:60px; height:60px; object-fit:cover; border-radius:15px;">
-        <span style="font-size:26px; font-weight:700;">
+col1, col2 = st.columns([1, 6])
+
+with col1:
+    st.image("judi.png", width=65)
+
+with col2:
+    st.markdown(
+        """
+        <div style="font-size:26px; font-weight:700; padding-top:12px;">
             대구경북지사 AI챗봇
-        </span>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 st.markdown("---")
