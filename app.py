@@ -525,7 +525,28 @@ if "rulebook_category" not in st.session_state:
 
 
 st.markdown(
-    '<div class="top-title">🏠 대구경북지사 AI 챗봇 </div>',
+    """
+    <div style="
+        display:flex;
+        align-items:center;
+        gap:12px;
+    ">
+        <img src="judi.png"
+             style="
+                width:55px;
+                height:55px;
+                object-fit:cover;
+                border-radius:14px;
+             ">
+
+        <span style="
+            font-size:26px;
+            font-weight:700;
+        ">
+            대구경북지사 AI챗봇
+        </span>
+    </div>
+    """,
     unsafe_allow_html=True
 )
 
