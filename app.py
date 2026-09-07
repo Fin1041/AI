@@ -1326,13 +1326,13 @@ def show_notice_generator():
 
     notice_date = st.text_input(
         "① 공고일자",
-        placeholder="예: 2026년 9월 1일",
+        placeholder="예: 2026.01.01.",
         key="notice_date_law"
     )
 
     notice_deadline = st.text_input(
         "② 공고기한",
-        placeholder="예: 2026년 9월 10일까지",
+        placeholder="예: 2026.01.31.",
         key="notice_deadline_law"
     )
 
@@ -1350,11 +1350,11 @@ def show_notice_generator():
     field5_value = ""
 
     for idx, (label_key, value_key, label_example, value_example) in enumerate([
-        ("notice_custom1_label_v3", "notice_custom1_value_v3", "예: 작업내용", "예: 보일러 세관"),
+        ("notice_custom1_label_v3", "notice_custom1_value_v3", "예: 건명", "예: 보일러 세관"),
         ("notice_custom2_label_v3", "notice_custom2_value_v3", "예: 작업장소", "예: 지하 기계실"),
         ("notice_custom3_label_v3", "notice_custom3_value_v3", "예: 작업일시", "예: 2026년 9월 10일 09:00~17:00"),
-        ("notice_custom4_label_v3", "notice_custom4_value_v3", "예: 담당부서", "예: 시설관리팀"),
-        ("notice_custom5_label_v3", "notice_custom5_value_v3", "예: 문의사항", "예: 관리사무소로 문의"),
+        ("notice_custom4_label_v3", "notice_custom4_value_v3", "예: 업체명", "예: 시설관리팀"),
+        ("notice_custom5_label_v3", "notice_custom5_value_v3", "예: 기타", "예: 관리사무소로 문의"),
     ], start=1):
         col1, col2 = st.columns([1, 2])
         with col1:
