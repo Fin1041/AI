@@ -526,23 +526,10 @@ if "rulebook_category" not in st.session_state:
 
 st.markdown(
     """
-    <div style="
-        display:flex;
-        align-items:center;
-        gap:12px;
-    ">
+    <div style="display:flex; align-items:center; gap:12px;">
         <img src="judi.png"
-             style="
-                width:55px;
-                height:55px;
-                object-fit:cover;
-                border-radius:14px;
-             ">
-
-        <span style="
-            font-size:26px;
-            font-weight:700;
-        ">
+             style="width:60px; height:60px; object-fit:cover; border-radius:15px;">
+        <span style="font-size:26px; font-weight:700;">
             대구경북지사 AI챗봇
         </span>
     </div>
