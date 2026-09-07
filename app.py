@@ -1350,7 +1350,7 @@ def show_notice_generator():
     field5_value = ""
 
     for idx, (label_key, value_key, label_example, value_example) in enumerate([
-        ("notice_custom1_label_v3", "notice_custom1_value_v3", "예: 건명", "예: 보일러 세관"),
+        ("notice_custom1_label_v3", "notice_custom1_value_v3", "예: 건명", "예: 승강기 정기검사"),
         ("notice_custom2_label_v3", "notice_custom2_value_v3", "예: 작업장소", "예: 지하 기계실"),
         ("notice_custom3_label_v3", "notice_custom3_value_v3", "예: 작업일시", "예: 2026년 9월 10일 09:00~17:00"),
         ("notice_custom4_label_v3", "notice_custom4_value_v3", "예: 업체명", "예: 시설관리팀"),
