@@ -1394,14 +1394,6 @@ def create_notice_hwpx(
                     "그림 없음 선택 후 {{그림영역}}이 남아 있습니다."
                 )
 
-            if "<hp:tbl" in xml:
-                # 그림영역 표가 남아있는지 추가 확인
-                marker_pos = xml.find("{{그림영역}}")
-
-                if marker_pos != -1:
-                    raise RuntimeError(
-                        "그림영역 표가 정상적으로 삭제되지 않았습니다."
-                    )
         
         # {{항목명}}, {{입력내용}}은 0개여야 한다.
         if "{{항목명}}" in xml or "{{입력내용}}" in xml:
