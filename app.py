@@ -1410,23 +1410,13 @@ def create_notice_hwpx(
 
         elif picture_option == "그림 삽입":
             if picture_marker in xml:
-                picture_area = """
-                <hp:p>
-                    <hp:run><hp:t>┌────────────────────────────────────┐</hp:t></hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run><hp:t>│</hp:t></hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run><hp:t>│              그림 삽입 공간</hp:t></hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run><hp:t>│</hp:t></hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run><hp:t>└────────────────────────────────────┘</hp:t></hp:run>
-                </hp:p>
-                """
+picture_area = """
+<hp:p>
+    <hp:run>
+        <hp:t>그림 삽입 공간</hp:t>
+    </hp:run>
+</hp:p>
+"""
 
                 xml = xml.replace(
                     picture_marker,
