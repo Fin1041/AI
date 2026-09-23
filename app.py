@@ -1412,19 +1412,9 @@ def create_notice_hwpx(
             if picture_marker in xml:
                 picture_area = """
                 <hp:p>
-                    <hp:run><hp:t>┌────────────────────────────────────┐</hp:t></hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run><hp:t>│</hp:t></hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run><hp:t>│              그림 삽입 공간</hp:t></hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run><hp:t>│</hp:t></hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run><hp:t>└────────────────────────────────────┘</hp:t></hp:run>
+                  <hp:run>
+                    <hp:t>그림 삽입 공간</hp:t>
+                  </hp:run>                
                 </hp:p>
                 """
 
