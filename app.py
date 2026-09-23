@@ -1259,28 +1259,29 @@ def create_notice_hwpx(
             paragraph = paragraph[:t.start()] + new_t + paragraph[t.end():]
             xml = xml[:p.start()] + paragraph + xml[p.end():]
 
- # ============================================================
-        # 그림 삽입 공간 처리
-        # 위치: 사용자 입력 항목 마지막 아래 / 전화번호 위
-        # ============================================================
+            # -------------------------------------------------
+            # 그림 삽입 공간 처리
+            # 위치: 안내내용 + 사용자 입력 항목 마지막 아래
+            # 전화번호 / 관리소명 위
+            # -------------------------------------------------
 
-         picture_marker = "{{그림영역}}"
+            picture_marker = "{{그림영역}}"
 
-        if picture_marker in xml:
+            if picture_marker in xml:
 
-            if picture_option == "그림 없음":
+                if picture_option == "그림 없음":
 
-                # 그림 영역 제거
-                xml = xml.replace(
-                    picture_marker,
-                    "",
-                    1
-                )
+                    # 그림 영역 제거
+                    xml = xml.replace(
+                        picture_marker,
+                        "",
+                        1
+                    )
 
-            else:
+                else:
 
-                # 그림 삽입 공간 표시
-                picture_area = """
+                    # 그림 삽입 공간 표시
+                    picture_area = """
 <hp:p>
     <hp:run>
         <hp:t>────────────────────────────</hp:t>
@@ -1308,11 +1309,11 @@ def create_notice_hwpx(
 </hp:p>
 """
 
-                xml = xml.replace(
-                    picture_marker,
-                    picture_area,
-                    1
-                )
+                    xml = xml.replace(
+                        picture_marker,
+                        picture_area,
+                        1
+                    )
         
         # 수정된 XML 자체 검증
         try:
