@@ -1264,62 +1264,54 @@ def create_notice_hwpx(
         # 위치: 사용자 입력 항목 마지막 아래 / 전화번호 위
         # ============================================================
 
-        picture_marker = "{{그림영역}}"
+         picture_marker = "{{그림영역}}"
 
-        if picture_marker in xml_text:
+        if picture_marker in xml:
 
             if picture_option == "그림 없음":
 
-                # 그림 영역을 완전히 제거
-                xml_text = xml_text.replace(
+                # 그림 영역 제거
+                xml = xml.replace(
                     picture_marker,
-                    ""
+                    "",
+                    1
                 )
 
             else:
 
                 # 그림 삽입 공간 표시
                 picture_area = """
-                <hp:p>
-                    <hp:run>
-                        <hp:t>
-                            ┌────────────────────────────────────┐
-                        </hp:t>
-                    </hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run>
-                        <hp:t>
-                            │
-                        </hp:t>
-                    </hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run>
-                        <hp:t>
-                            │              그림 삽입 공간
-                        </hp:t>
-                    </hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run>
-                        <hp:t>
-                            │
-                        </hp:t>
-                    </hp:run>
-                </hp:p>
-                <hp:p>
-                    <hp:run>
-                        <hp:t>
-                            └────────────────────────────────────┘
-                        </hp:t>
-                    </hp:run>
-                </hp:p>
-                """
+<hp:p>
+    <hp:run>
+        <hp:t>────────────────────────────</hp:t>
+    </hp:run>
+</hp:p>
+<hp:p>
+    <hp:run>
+        <hp:t>                            </hp:t>
+    </hp:run>
+</hp:p>
+<hp:p>
+    <hp:run>
+        <hp:t>          그림 삽입 공간       </hp:t>
+    </hp:run>
+</hp:p>
+<hp:p>
+    <hp:run>
+        <hp:t>                            </hp:t>
+    </hp:run>
+</hp:p>
+<hp:p>
+    <hp:run>
+        <hp:t>────────────────────────────</hp:t>
+    </hp:run>
+</hp:p>
+"""
 
-                xml_text = xml_text.replace(
+                xml = xml.replace(
                     picture_marker,
-                    picture_area
+                    picture_area,
+                    1
                 )
         
         # 수정된 XML 자체 검증
@@ -1340,6 +1332,9 @@ def create_notice_hwpx(
         # {{항목명}}, {{입력내용}}은 0개여야 한다.
         if "{{항목명}}" in xml or "{{입력내용}}" in xml:
             raise RuntimeError("사용자 지정 항목 치환이 완료되지 않았습니다.")
+
+        if "{{그림영역}}" in xml:
+            raise RuntimeError("그림 삽입 영역 치환이 완료되지 않았습니다.")
 
         for marker in [
             "{{제목}}",
