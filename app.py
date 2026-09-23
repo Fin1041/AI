@@ -1308,11 +1308,14 @@ def create_notice_hwpx(
         ET.fromstring(final_xml)
 
         # 실제 사용자 입력이 5개 모두 들어갔는지 확인
-        for label, value in custom_fields:
-            if str(label) not in final_xml or str(value) not in final_xml:
-                raise RuntimeError(
-                    f"완성 HWPX에 사용자 항목이 정상 반영되지 않았습니다: {label} / {value}"
-                )
+       for label, value in custom_fields:
+    safe_label = html.escape(str(label), quote=False)
+    safe_value = html.escape(str(value), quote=False)
+
+    if safe_label not in final_xml or safe_value not in final_xml:
+        raise RuntimeError(
+            f"완성 HWPX에 사용자 항목이 정상 반영되지 않았습니다: {label} / {value}"
+        )
 
     return output_path
 
