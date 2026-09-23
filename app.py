@@ -1304,72 +1304,49 @@ def create_notice_hwpx(
             paragraph = paragraph[:t.start()] + new_t + paragraph[t.end():]
             xml = xml[:p.start()] + paragraph + xml[p.end():]
 
-        # -------------------------------------------------
-        # 그림 삽입 영역 처리
-        # -------------------------------------------------
-
+        # ------------------------------------------------------------
+        # 그림 영역 처리
+        # ------------------------------------------------------------
         picture_marker = "{{그림영역}}"
 
         if picture_marker in xml:
 
             if picture_option == "그림 없음":
 
-                # {{그림영역}}을 포함하고 있는 실제 표(hp:tbl)와
-                # 그 표를 감싸고 있는 문단(hp:p)을 통째로 삭제한다.
-                marker_pos = xml.find(picture_marker)
+                # {{그림영역}}이 들어있는 표(hp:tbl)를 모두 찾아
+                # 표 전체를 삭제한다.
+                while picture_marker in xml:
 
-                table_start = xml.rfind(
-                    "<hp:tbl",
-                    0,
-                    marker_pos
-                )
+                    marker_pos = xml.find(picture_marker)
 
-                table_end = xml.find(
-                    "</hp:tbl>",
-                    marker_pos
-                )
+                    # 해당 마커를 포함하는 가장 가까운 표의 시작 위치
+                    table_start = xml.rfind("<hp:tbl", 0, marker_pos)
 
-                if table_start == -1 or table_end == -1:
-                    raise RuntimeError(
-                        "{{그림영역}} 표 구조를 찾지 못했습니다."
-                    )
+                    if table_start == -1:
+                        raise RuntimeError(
+                            "그림영역 표의 시작 위치를 찾을 수 없습니다."
+                        )
 
-                table_end += len("</hp:tbl>")
+                    # 해당 표의 끝 위치
+                    table_end = xml.find("</hp:tbl>", marker_pos)
 
-                paragraph_start = xml.rfind(
-                    "<hp:p",
-                    0,
-                    table_start
-                )
+                    if table_end == -1:
+                        raise RuntimeError(
+                            "그림영역 표의 끝 위치를 찾을 수 없습니다."
+                        )
 
-                paragraph_end = xml.find(
-                    "</hp:p>",
-                    table_end
-                )
+                    table_end += len("</hp:tbl>")
 
-                if paragraph_start == -1 or paragraph_end == -1:
-                    raise RuntimeError(
-                        "{{그림영역}}을 포함한 문단 구조를 찾지 못했습니다."
-                    )
+                    # 표 전체 삭제
+                    xml = xml[:table_start] + xml[table_end:]
 
-                paragraph_end += len("</hp:p>")
-
-                # 그림 표 + 그림 표를 감싸는 문단 전체 삭제
-                xml = (
-                    xml[:paragraph_start]
-                    + xml[paragraph_end:]
-                )
+                # 혹시 표 밖에 남아 있는 마커가 있다면 모두 삭제
+                xml = xml.replace(picture_marker, "")
 
             else:
-
-                # 그림 삽입 선택 시에는
-                # 실제 그림 삽입용 표를 그대로 유지하고
-                # placeholder 글자만 제거한다.
-                xml = xml.replace(
-                    picture_marker,
-                    "",
-                    1
-                )
+                # 그림 삽입을 선택한 경우
+                # 표는 그대로 유지하고 마커만 삭제
+                xml = xml.replace(picture_marker, "")
         
         # 수정된 XML 자체 검증
         try:
