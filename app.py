@@ -1267,53 +1267,25 @@ def create_notice_hwpx(
 
             picture_marker = "{{그림영역}}"
 
-            if picture_marker in xml:
+            if picture_option == "그림 없음":
 
-                if picture_option == "그림 없음":
+                # {{그림영역}}이 들어있는 표 전체 삭제
+                picture_start = xml.rfind("<hp:tbl", 0, xml.find(picture_marker))
+                picture_end = xml.find("</hp:tbl>", xml.find(picture_marker))
 
-                    # 그림 영역 제거
-                    xml = xml.replace(
-                        picture_marker,
-                        "",
-                        1
-                    )
+                if picture_start != -1 and picture_end != -1:
+                    picture_end += len("</hp:tbl>")
+                    xml = xml[:picture_start] + xml[picture_end:]
 
-                else:
+            else:
 
-                    # 그림 삽입 공간 표시
-                    picture_area = """
-<hp:p>
-    <hp:run>
-        <hp:t>────────────────────────────</hp:t>
-    </hp:run>
-</hp:p>
-<hp:p>
-    <hp:run>
-        <hp:t>                            </hp:t>
-    </hp:run>
-</hp:p>
-<hp:p>
-    <hp:run>
-        <hp:t>          그림 삽입 공간       </hp:t>
-    </hp:run>
-</hp:p>
-<hp:p>
-    <hp:run>
-        <hp:t>                            </hp:t>
-    </hp:run>
-</hp:p>
-<hp:p>
-    <hp:run>
-        <hp:t>────────────────────────────</hp:t>
-    </hp:run>
-</hp:p>
-"""
-
-                    xml = xml.replace(
-                        picture_marker,
-                        picture_area,
-                        1
-                    )
+                # 그림 삽입 선택 시에는 그림영역 표를 그대로 유지
+                # 단, 내부의 {{그림영역}} 글자만 삭제
+                xml = xml.replace(
+                    picture_marker,
+                    "",
+                    1
+                )
         
         # 수정된 XML 자체 검증
         try:
