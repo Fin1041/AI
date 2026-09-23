@@ -1076,7 +1076,8 @@ def create_notice_hwpx(
     notice_deadline,
     custom_fields,
     phone,
-    office
+    office,
+    picture_option
 ):
     """
     현재 notice_template.hwpx의 구조에 맞춰 안전하게 생성한다.
@@ -1258,6 +1259,69 @@ def create_notice_hwpx(
             paragraph = paragraph[:t.start()] + new_t + paragraph[t.end():]
             xml = xml[:p.start()] + paragraph + xml[p.end():]
 
+ # ============================================================
+        # 그림 삽입 공간 처리
+        # 위치: 사용자 입력 항목 마지막 아래 / 전화번호 위
+        # ============================================================
+
+        picture_marker = "{{그림영역}}"
+
+        if picture_marker in xml_text:
+
+            if picture_option == "그림 없음":
+
+                # 그림 영역을 완전히 제거
+                xml_text = xml_text.replace(
+                    picture_marker,
+                    ""
+                )
+
+            else:
+
+                # 그림 삽입 공간 표시
+                picture_area = """
+                <hp:p>
+                    <hp:run>
+                        <hp:t>
+                            ┌────────────────────────────────────┐
+                        </hp:t>
+                    </hp:run>
+                </hp:p>
+                <hp:p>
+                    <hp:run>
+                        <hp:t>
+                            │
+                        </hp:t>
+                    </hp:run>
+                </hp:p>
+                <hp:p>
+                    <hp:run>
+                        <hp:t>
+                            │              그림 삽입 공간
+                        </hp:t>
+                    </hp:run>
+                </hp:p>
+                <hp:p>
+                    <hp:run>
+                        <hp:t>
+                            │
+                        </hp:t>
+                    </hp:run>
+                </hp:p>
+                <hp:p>
+                    <hp:run>
+                        <hp:t>
+                            └────────────────────────────────────┘
+                        </hp:t>
+                    </hp:run>
+                </hp:p>
+                """
+
+                xml_text = xml_text.replace(
+                    picture_marker,
+                    picture_area
+                )
+        
         # 수정된 XML 자체 검증
         try:
             ET.fromstring(xml)
@@ -1393,21 +1457,30 @@ def show_notice_generator():
             field4_label, field4_value = label_value, value_value
         else:
             field5_label, field5_value = label_value, value_value
+            
+    st.markdown("**⑧ 안내문 그림 삽입**")
 
+    picture_option = st.radio(
+        "그림 삽입 여부",
+        ["그림 없음", "그림 삽입"],
+        horizontal=True,
+        key="notice_picture_option"
+    )
+    
     phone = st.text_input(
-        "⑥ 전화번호",
+       "⑨ 전화번호",
         placeholder="예: 053-123-4567",
         key="notice_phone_law"
     )
 
     office = st.text_input(
-        "⑦ 관리소명",
+        "⑩ 관리소명",
         placeholder="예: ○○관리소",
         key="notice_office_law"
     )
 
     request_text = st.text_area(
-        "⑧ 안내문 요청",
+        "⑪ 안내문 요청",
         placeholder=(
             "예: 보일러 세관 안내문을 작성해줘. "
             "관련 법규가 있으면 안내내용에 넣어줘."
@@ -1584,7 +1657,8 @@ def show_notice_generator():
                     notice_deadline,
                     custom_fields,
                     phone,
-                    office
+                    office,
+                    picture_option
                 )
 
             with open(
