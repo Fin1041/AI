@@ -848,11 +848,10 @@ def _github_download(url):
         return response.read()
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
 def get_notice_template_bytes():
     """
-    GitHub의 HWPX 양식을 1시간 캐시한다.
-    안내문을 만들 때마다 다시 다운로드하지 않도록 해 속도를 높인다.
+    GitHub의 최신 HWPX 양식을 매번 다시 받아온다.
+    템플릿 교체 후 이전 HWPX가 캐시되어 사용되는 문제를 방지한다.
     """
     data = _github_download(HWPX_TEMPLATE_URL)
 
@@ -1265,45 +1264,68 @@ def create_notice_hwpx(
 
         picture_marker = "{{그림영역}}"
 
-        if picture_marker in xml:
+        if picture_option == "그림 없음":
+            if picture_marker in xml:
+                before_table_count = len(
+                    re.findall(r"<hp:tbl\b", xml)
+                )
 
-            if picture_option == "그림 없음":
                 marker_pos = xml.find(picture_marker)
                 table_start = xml.rfind("<hp:tbl", 0, marker_pos)
 
                 if table_start == -1:
-                    raise RuntimeError("{{그림영역}}을 포함한 그림 표를 찾지 못했습니다.")
+                    raise RuntimeError(
+                        "{{그림영역}}을 포함한 그림 표를 찾지 못했습니다."
+                    )
 
-                # 중첩 hp:tbl까지 고려하여 정확한 종료 태그를 찾는다.
-                tbl_token = re.compile(r"<hp:tbl\b[^>]*>|</hp:tbl>")
+                # hp:tbl이 중첩되어 있을 수 있으므로 깊이를 계산하여
+                # 정확히 현재 그림 표의 닫는 태그를 찾는다.
+                tbl_token = re.compile(
+                    r"<hp:tbl\b[^>]*>|</hp:tbl>"
+                )
                 depth = 0
                 table_end = -1
 
                 for token in tbl_token.finditer(xml, table_start):
                     token_text = token.group(0)
+
                     if token_text.startswith("</hp:tbl"):
                         depth -= 1
                         if depth == 0:
                             table_end = token.end()
                             break
+
                     elif not token_text.endswith("/>"):
                         depth += 1
 
                 if table_end == -1:
-                    raise RuntimeError("{{그림영역}} 그림 표의 종료 태그를 찾지 못했습니다.")
+                    raise RuntimeError(
+                        "{{그림영역}} 그림 표의 종료 태그를 찾지 못했습니다."
+                    )
 
                 picture_table = xml[table_start:table_end]
-                if picture_marker not in picture_table:
-                    raise RuntimeError("찾은 표가 {{그림영역}}을 포함한 그림 표가 아닙니다.")
 
-                # 표를 포함하는 바깥 hp:p를 중첩 깊이로 정확히 찾는다.
-                p_token = re.compile(r"<hp:p\b[^>]*>|</hp:p>")
+                if picture_marker not in picture_table:
+                    raise RuntimeError(
+                        "찾은 표가 {{그림영역}}을 포함한 그림 표가 아닙니다."
+                    )
+
+                # 그림 표는 treatAsChar="1"인 문자처럼 취급되는 객체이므로
+                # 표만 제거하면 빈 줄이 남을 수 있다.
+                # 따라서 표를 감싸는 바깥 hp:p도 정확히 찾아본다.
+                p_token = re.compile(
+                    r"<hp:p\b[^>]*>|</hp:p>"
+                )
+
                 p_stack = []
+
                 for token in p_token.finditer(xml, 0, table_start):
                     token_text = token.group(0)
+
                     if token_text.startswith("</hp:p"):
                         if p_stack:
                             p_stack.pop()
+
                     elif not token_text.endswith("/>"):
                         p_stack.append(token.start())
 
@@ -1312,44 +1334,82 @@ def create_notice_hwpx(
 
                 if paragraph_start != -1:
                     p_depth = 0
-                    for token in p_token.finditer(xml, paragraph_start):
+
+                    for token in p_token.finditer(
+                        xml,
+                        paragraph_start
+                    ):
                         token_text = token.group(0)
+
                         if token_text.startswith("</hp:p"):
                             p_depth -= 1
+
                             if p_depth == 0:
                                 paragraph_end = token.end()
                                 break
+
                         elif not token_text.endswith("/>"):
                             p_depth += 1
 
-                xml_without_table = xml[:table_start] + xml[table_end:]
+                # 우선 그림 표 자체를 제거한 XML을 만든다.
+                xml_without_table = (
+                    xml[:table_start]
+                    + xml[table_end:]
+                )
 
-                # 그림 표만 들어 있는 빈 문단이면 문단까지 제거하여
-                # 그림 영역의 빈 세로 공간도 남지 않게 한다.
+                # 바깥 문단에 그림 표 외의 실제 글자가 없다면
+                # 문단 전체도 제거하여 빈 그림 영역 높이가 남지 않게 한다.
                 if paragraph_start != -1 and paragraph_end != -1:
                     paragraph = xml[paragraph_start:paragraph_end]
-                    paragraph_without_table = paragraph.replace(picture_table, "", 1)
+                    paragraph_without_table = paragraph.replace(
+                        picture_table,
+                        "",
+                        1
+                    )
+
                     text_values = re.findall(
                         r"<hp:t\b[^>]*>([\s\S]*?)</hp:t>",
                         paragraph_without_table,
                         re.DOTALL
                     )
+
                     remaining_text = "".join(text_values).strip()
-                    remaining_tables = re.search(r"<hp:tbl\b", paragraph_without_table)
+                    remaining_tables = re.search(
+                        r"<hp:tbl\b",
+                        paragraph_without_table
+                    )
 
                     if not remaining_text and not remaining_tables:
-                        xml = xml[:paragraph_start] + xml[paragraph_end:]
+                        xml = (
+                            xml[:paragraph_start]
+                            + xml[paragraph_end:]
+                        )
                     else:
                         xml = xml_without_table
+
                 else:
                     xml = xml_without_table
 
-                # 잔여 marker가 있으면 제거하고 최종 확인한다.
+                # 혹시 남아 있을 수 있는 marker도 최종 제거한다.
                 xml = xml.replace(picture_marker, "")
-                if picture_marker in xml:
-                    raise RuntimeError("그림 없음 선택 후 {{그림영역}}이 남아 있습니다.")
 
-            else:
+                after_table_count = len(
+                    re.findall(r"<hp:tbl\b", xml)
+                )
+
+                if picture_marker in xml:
+                    raise RuntimeError(
+                        "그림 없음 선택 후 {{그림영역}}이 남아 있습니다."
+                    )
+
+                if after_table_count != before_table_count - 1:
+                    raise RuntimeError(
+                        "그림 없음 처리 검증 실패: "
+                        "그림 영역 표가 정확히 1개 제거되지 않았습니다."
+                    )
+
+        elif picture_option == "그림 삽입":
+            if picture_marker in xml:
                 picture_area = """
                 <hp:p>
                     <hp:run><hp:t>┌────────────────────────────────────┐</hp:t></hp:run>
@@ -1367,7 +1427,17 @@ def create_notice_hwpx(
                     <hp:run><hp:t>└────────────────────────────────────┘</hp:t></hp:run>
                 </hp:p>
                 """
-                xml = xml.replace(picture_marker, picture_area, 1)
+
+                xml = xml.replace(
+                    picture_marker,
+                    picture_area,
+                    1
+                )
+
+        else:
+            raise RuntimeError(
+                f"알 수 없는 그림 삽입 옵션입니다: {picture_option}"
+            )
 
         # 수정된 XML 자체 검증
         try:
