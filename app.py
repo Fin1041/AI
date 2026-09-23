@@ -1307,47 +1307,163 @@ def create_notice_hwpx(
         # ------------------------------------------------------------
         # 그림 영역 처리
         # ------------------------------------------------------------
+        # 현재 실제 HWPX 구조:
+        # hp:p → hp:run → hp:tbl → hp:tr → hp:tc
+        #
+        # 그림 표(hp:tbl)만 삭제하면 그림 표를 감싸던 hp:p의
+        # 큰 lineseg 높이가 남아 빈 그림 공간처럼 보인다.
+        #
+        # 따라서 "그림 없음"에서는
+        # ① 그림 표 전체 삭제
+        # ② 그림 표를 감싸던 빈 hp:p 문단도 삭제
+        # ③ placeholder가 남지 않았는지 최종 검증
+        # 을 수행한다.
+        # ------------------------------------------------------------
+
         picture_marker = "{{그림영역}}"
 
-        if picture_marker in xml:
+        if picture_option == "그림 없음":
 
-            if picture_option == "그림 없음":
+            while picture_marker in xml:
 
-                # {{그림영역}}이 들어있는 표(hp:tbl)를 모두 찾아
-                # 표 전체를 삭제한다.
-                while picture_marker in xml:
+                marker_pos = xml.find(picture_marker)
 
-                    marker_pos = xml.find(picture_marker)
+                # ----------------------------------------------------
+                # 1. placeholder를 포함하는 가장 가까운 hp:tbl 찾기
+                # ----------------------------------------------------
+                table_start = xml.rfind(
+                    "<hp:tbl",
+                    0,
+                    marker_pos
+                )
 
-                    # 해당 마커를 포함하는 가장 가까운 표의 시작 위치
-                    table_start = xml.rfind("<hp:tbl", 0, marker_pos)
+                if table_start == -1:
+                    # 표 밖에 남은 placeholder라면 글자만 제거
+                    xml = (
+                        xml[:marker_pos]
+                        + xml[marker_pos + len(picture_marker):]
+                    )
+                    continue
 
-                    if table_start == -1:
-                        raise RuntimeError(
-                            "그림영역 표의 시작 위치를 찾을 수 없습니다."
+                # ----------------------------------------------------
+                # 2. 해당 표의 정확한 닫는 태그 찾기
+                # ----------------------------------------------------
+                table_end = xml.find(
+                    "</hp:tbl>",
+                    marker_pos
+                )
+
+                if table_end == -1:
+                    raise RuntimeError(
+                        "그림영역 표의 끝 태그를 찾지 못했습니다."
+                    )
+
+                table_end += len("</hp:tbl>")
+
+                # ----------------------------------------------------
+                # 3. 표를 감싸고 있는 hp:p 시작 위치 확인
+                #    <hp:p\b를 사용하여 hp:pos 같은 태그와 혼동하지 않는다.
+                # ----------------------------------------------------
+                paragraph_candidates = list(
+                    re.finditer(
+                        r"<hp:p\b[^>]*>",
+                        xml[:table_start]
+                    )
+                )
+
+                paragraph_start = (
+                    paragraph_candidates[-1].start()
+                    if paragraph_candidates
+                    else -1
+                )
+
+                paragraph_end = xml.find(
+                    "</hp:p>",
+                    table_end
+                )
+
+                # ----------------------------------------------------
+                # 4. 그림 표 자체 삭제
+                # ----------------------------------------------------
+                removed_table_length = table_end - table_start
+
+                xml = (
+                    xml[:table_start]
+                    + xml[table_end:]
+                )
+
+                # 표가 삭제되면서 뒤쪽 XML 위치가 앞으로 당겨졌으므로
+                # 문단의 끝 위치도 삭제된 표 길이만큼 보정한다.
+                if paragraph_end != -1:
+                    paragraph_end -= removed_table_length
+
+                # ----------------------------------------------------
+                # 5. 그림 표를 담고 있던 빈 hp:p도 삭제
+                #
+                # 실제 템플릿에서는 표 삭제 후
+                # <hp:t/> + 큰 <hp:lineseg>가 남는다.
+                # 이것이 빈 그림 공간의 원인이므로 반드시 제거한다.
+                # ----------------------------------------------------
+                if (
+                    paragraph_start != -1
+                    and paragraph_end != -1
+                ):
+
+                    paragraph_end += len("</hp:p>")
+
+                    if (
+                        paragraph_start < len(xml)
+                        and paragraph_start < paragraph_end
+                    ):
+
+                        paragraph = xml[
+                            paragraph_start:paragraph_end
+                        ]
+
+                        text_values = re.findall(
+                            r"<hp:t\b[^>]*>(.*?)</hp:t>",
+                            paragraph,
+                            re.DOTALL
                         )
 
-                    # 해당 표의 끝 위치
-                    table_end = xml.find("</hp:tbl>", marker_pos)
-
-                    if table_end == -1:
-                        raise RuntimeError(
-                            "그림영역 표의 끝 위치를 찾을 수 없습니다."
+                        meaningful_text = any(
+                            re.sub(
+                                r"<[^>]+>",
+                                "",
+                                value
+                            ).strip()
+                            for value in text_values
                         )
 
-                    table_end += len("</hp:tbl>")
+                        if (
+                            not meaningful_text
+                            and "<hp:tbl" not in paragraph
+                        ):
+                            xml = (
+                                xml[:paragraph_start]
+                                + xml[paragraph_end:]
+                            )
 
-                    # 표 전체 삭제
-                    xml = xml[:table_start] + xml[table_end:]
+            # 혹시 표 밖에 남아 있는 placeholder도 제거
+            xml = xml.replace(
+                picture_marker,
+                ""
+            )
 
-                # 혹시 표 밖에 남아 있는 마커가 있다면 모두 삭제
-                xml = xml.replace(picture_marker, "")
+        elif picture_option == "그림 삽입":
 
-            else:
-                # 그림 삽입을 선택한 경우
-                # 표는 그대로 유지하고 마커만 삭제
-                xml = xml.replace(picture_marker, "")
-        
+            # 그림 삽입 선택 시에는 표를 유지하고
+            # placeholder 글자만 제거한다.
+            xml = xml.replace(
+                picture_marker,
+                ""
+            )
+
+        else:
+            raise RuntimeError(
+                f"알 수 없는 그림 옵션입니다: {picture_option}"
+            )
+
         # 수정된 XML 자체 검증
         try:
             ET.fromstring(xml)
