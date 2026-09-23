@@ -1167,100 +1167,55 @@ def create_notice_hwpx(
             )
 
         for idx in range(5):
-
             match = target_indices[0]
             paragraph = match.group(0)
-
             if idx < len(custom_fields):
-
                 label, value = custom_fields[idx]
-
-                safe_label = html.escape(
-                    str(label),
-                    quote=False
-                )
-
-                safe_value = html.escape(
-                    str(value),
-                    quote=False
-                )
-
-                # 항목명과 입력내용이 모두 입력된 경우에만 표시
-                if label and value:
-
-                    display_text = (
-                        f"{idx + 1}. {label} : {value}"
-                    )
-
-                    safe_display = html.escape(
-                        display_text,
-                        quote=False
-                    )
-
-                    new_paragraph = paragraph.replace(
-                        "{{항목명}} {{입력내용}}",
-                        safe_display,
-                        1
-                    )
-
-                    new_paragraph = new_paragraph.replace(
-                        "{{항목명}}",
-                        safe_label,
-                        1
-                    )
-
-                    new_paragraph = new_paragraph.replace(
-                        "{{입력내용}}",
-                        safe_value,
-                        1
-                    )
-
-                    xml = (
-                        xml[:match.start()]
-                        + new_paragraph
-                        + xml[match.end():]
-                    )
-
-                else:
-
-                    # 항목명 또는 입력내용이 비어 있으면
-                    # 해당 문단 자체를 통째로 삭제한다.
-                    xml = (
-                        xml[:match.start()]
-                        + xml[match.end():]
-                    )
-
+                safe_label = html.escape(str(label), quote=False)
+                safe_value = html.escape(str(value), quote=False)
             else:
+                # 입력하지 않은 나머지 행은 문단 전체를 비워 표시되지 않게 한다.
+                label = ""
+                value = ""
+                safe_label = ""
+                safe_value = ""
 
-                # 5개 미만으로 입력한 경우
-                # 남은 항목 문단 자체를 모두 삭제한다.
-                xml = (
-                    xml[:match.start()]
-                    + xml[match.end():]
-                )
+            # 같은 문단의 두 placeholder를
+            # "1. 항목명 : 입력내용" 형식으로 표시한다.
+            if label and value:
+                display_text = f"{idx + 1}. {label} : {value}"
+                safe_display = html.escape(display_text, quote=False)
+                new_paragraph = paragraph.replace("{{항목명}} {{입력내용}}", safe_display, 1)
+                new_paragraph = new_paragraph.replace("{{항목명}}", safe_label, 1)
+                new_paragraph = new_paragraph.replace("{{입력내용}}", safe_value, 1)
+            else:
+                # 입력하지 않은 행은 실제 표시가 남지 않도록 완전히 비운다.
+                new_paragraph = paragraph.replace("{{항목명}}", "", 1)
+                new_paragraph = new_paragraph.replace("{{입력내용}}", "", 1)
 
-            # 다음 항목을 현재 XML에서 다시 찾는다.
+            # 원본 xml에서 뒤쪽부터 바꿔 위치가 틀어지지 않도록
+            # 치환 대상 5개를 뒤에서부터 적용한다.
+            xml = (
+                xml[:match.start()]
+                + new_paragraph
+                + xml[match.end():]
+            )
+
+            # 앞의 치환으로 match 위치가 변했으므로 다음 반복에서
+            # 다시 현재 XML 기준으로 항목 문단을 찾는다.
             if idx < 4:
-
                 paragraphs = list(
                     re.finditer(
-                        r"<hp:p\b[^>]*>"
-                        r"(?:(?!<hp:p\b)[\s\S])*?"
-                        r"</hp:p>",
+                        r"<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?</hp:p>",
                         xml,
                         re.DOTALL
                     )
                 )
-
                 target_indices = [
-                    m
-                    for m in paragraphs
-                    if "{{항목명}}" in m.group(0)
-                    and "{{입력내용}}" in m.group(0)
+                    m for m in paragraphs
+                    if "{{항목명}}" in m.group(0) and "{{입력내용}}" in m.group(0)
                 ]
 
-                if not target_indices:
-                    break
         # -------------------------------------------------
         # 안내내용1~5
         # 기존 문단과 run 구조를 유지하면서 텍스트만 교체한다.
@@ -1304,165 +1259,115 @@ def create_notice_hwpx(
             paragraph = paragraph[:t.start()] + new_t + paragraph[t.end():]
             xml = xml[:p.start()] + paragraph + xml[p.end():]
 
-        # ------------------------------------------------------------
-        # 그림 영역 처리
-        # ------------------------------------------------------------
-        # 현재 실제 HWPX 구조:
-        # hp:p → hp:run → hp:tbl → hp:tr → hp:tc
-        #
-        # 그림 표(hp:tbl)만 삭제하면 그림 표를 감싸던 hp:p의
-        # 큰 lineseg 높이가 남아 빈 그림 공간처럼 보인다.
-        #
-        # 따라서 "그림 없음"에서는
-        # ① 그림 표 전체 삭제
-        # ② 그림 표를 감싸던 빈 hp:p 문단도 삭제
-        # ③ placeholder가 남지 않았는지 최종 검증
-        # 을 수행한다.
-        # ------------------------------------------------------------
+ # ============================================================
+        # 그림 삽입 공간 처리
+        # ============================================================
 
         picture_marker = "{{그림영역}}"
 
-        if picture_option == "그림 없음":
+        if picture_marker in xml:
 
-            while picture_marker in xml:
-
+            if picture_option == "그림 없음":
                 marker_pos = xml.find(picture_marker)
-
-                # ----------------------------------------------------
-                # 1. placeholder를 포함하는 가장 가까운 hp:tbl 찾기
-                # ----------------------------------------------------
-                table_start = xml.rfind(
-                    "<hp:tbl",
-                    0,
-                    marker_pos
-                )
+                table_start = xml.rfind("<hp:tbl", 0, marker_pos)
 
                 if table_start == -1:
-                    # 표 밖에 남은 placeholder라면 글자만 제거
-                    xml = (
-                        xml[:marker_pos]
-                        + xml[marker_pos + len(picture_marker):]
-                    )
-                    continue
+                    raise RuntimeError("{{그림영역}}을 포함한 그림 표를 찾지 못했습니다.")
 
-                # ----------------------------------------------------
-                # 2. 해당 표의 정확한 닫는 태그 찾기
-                # ----------------------------------------------------
-                table_end = xml.find(
-                    "</hp:tbl>",
-                    marker_pos
-                )
+                # 중첩 hp:tbl까지 고려하여 정확한 종료 태그를 찾는다.
+                tbl_token = re.compile(r"<hp:tbl\b[^>]*>|</hp:tbl>")
+                depth = 0
+                table_end = -1
+
+                for token in tbl_token.finditer(xml, table_start):
+                    token_text = token.group(0)
+                    if token_text.startswith("</hp:tbl"):
+                        depth -= 1
+                        if depth == 0:
+                            table_end = token.end()
+                            break
+                    elif not token_text.endswith("/>"):
+                        depth += 1
 
                 if table_end == -1:
-                    raise RuntimeError(
-                        "그림영역 표의 끝 태그를 찾지 못했습니다."
+                    raise RuntimeError("{{그림영역}} 그림 표의 종료 태그를 찾지 못했습니다.")
+
+                picture_table = xml[table_start:table_end]
+                if picture_marker not in picture_table:
+                    raise RuntimeError("찾은 표가 {{그림영역}}을 포함한 그림 표가 아닙니다.")
+
+                # 표를 포함하는 바깥 hp:p를 중첩 깊이로 정확히 찾는다.
+                p_token = re.compile(r"<hp:p\b[^>]*>|</hp:p>")
+                p_stack = []
+                for token in p_token.finditer(xml, 0, table_start):
+                    token_text = token.group(0)
+                    if token_text.startswith("</hp:p"):
+                        if p_stack:
+                            p_stack.pop()
+                    elif not token_text.endswith("/>"):
+                        p_stack.append(token.start())
+
+                paragraph_start = p_stack[-1] if p_stack else -1
+                paragraph_end = -1
+
+                if paragraph_start != -1:
+                    p_depth = 0
+                    for token in p_token.finditer(xml, paragraph_start):
+                        token_text = token.group(0)
+                        if token_text.startswith("</hp:p"):
+                            p_depth -= 1
+                            if p_depth == 0:
+                                paragraph_end = token.end()
+                                break
+                        elif not token_text.endswith("/>"):
+                            p_depth += 1
+
+                xml_without_table = xml[:table_start] + xml[table_end:]
+
+                # 그림 표만 들어 있는 빈 문단이면 문단까지 제거하여
+                # 그림 영역의 빈 세로 공간도 남지 않게 한다.
+                if paragraph_start != -1 and paragraph_end != -1:
+                    paragraph = xml[paragraph_start:paragraph_end]
+                    paragraph_without_table = paragraph.replace(picture_table, "", 1)
+                    text_values = re.findall(
+                        r"<hp:t\b[^>]*>([\s\S]*?)</hp:t>",
+                        paragraph_without_table,
+                        re.DOTALL
                     )
+                    remaining_text = "".join(text_values).strip()
+                    remaining_tables = re.search(r"<hp:tbl\b", paragraph_without_table)
 
-                table_end += len("</hp:tbl>")
+                    if not remaining_text and not remaining_tables:
+                        xml = xml[:paragraph_start] + xml[paragraph_end:]
+                    else:
+                        xml = xml_without_table
+                else:
+                    xml = xml_without_table
 
-                # ----------------------------------------------------
-                # 3. 표를 감싸고 있는 hp:p 시작 위치 확인
-                #    <hp:p\b를 사용하여 hp:pos 같은 태그와 혼동하지 않는다.
-                # ----------------------------------------------------
-                paragraph_candidates = list(
-                    re.finditer(
-                        r"<hp:p\b[^>]*>",
-                        xml[:table_start]
-                    )
-                )
+                # 잔여 marker가 있으면 제거하고 최종 확인한다.
+                xml = xml.replace(picture_marker, "")
+                if picture_marker in xml:
+                    raise RuntimeError("그림 없음 선택 후 {{그림영역}}이 남아 있습니다.")
 
-                paragraph_start = (
-                    paragraph_candidates[-1].start()
-                    if paragraph_candidates
-                    else -1
-                )
-
-                paragraph_end = xml.find(
-                    "</hp:p>",
-                    table_end
-                )
-
-                # ----------------------------------------------------
-                # 4. 그림 표 자체 삭제
-                # ----------------------------------------------------
-                removed_table_length = table_end - table_start
-
-                xml = (
-                    xml[:table_start]
-                    + xml[table_end:]
-                )
-
-                # 표가 삭제되면서 뒤쪽 XML 위치가 앞으로 당겨졌으므로
-                # 문단의 끝 위치도 삭제된 표 길이만큼 보정한다.
-                if paragraph_end != -1:
-                    paragraph_end -= removed_table_length
-
-                # ----------------------------------------------------
-                # 5. 그림 표를 담고 있던 빈 hp:p도 삭제
-                #
-                # 실제 템플릿에서는 표 삭제 후
-                # <hp:t/> + 큰 <hp:lineseg>가 남는다.
-                # 이것이 빈 그림 공간의 원인이므로 반드시 제거한다.
-                # ----------------------------------------------------
-                if (
-                    paragraph_start != -1
-                    and paragraph_end != -1
-                ):
-
-                    paragraph_end += len("</hp:p>")
-
-                    if (
-                        paragraph_start < len(xml)
-                        and paragraph_start < paragraph_end
-                    ):
-
-                        paragraph = xml[
-                            paragraph_start:paragraph_end
-                        ]
-
-                        text_values = re.findall(
-                            r"<hp:t\b[^>]*>(.*?)</hp:t>",
-                            paragraph,
-                            re.DOTALL
-                        )
-
-                        meaningful_text = any(
-                            re.sub(
-                                r"<[^>]+>",
-                                "",
-                                value
-                            ).strip()
-                            for value in text_values
-                        )
-
-                        if (
-                            not meaningful_text
-                            and "<hp:tbl" not in paragraph
-                        ):
-                            xml = (
-                                xml[:paragraph_start]
-                                + xml[paragraph_end:]
-                            )
-
-            # 혹시 표 밖에 남아 있는 placeholder도 제거
-            xml = xml.replace(
-                picture_marker,
-                ""
-            )
-
-        elif picture_option == "그림 삽입":
-
-            # 그림 삽입 선택 시에는 표를 유지하고
-            # placeholder 글자만 제거한다.
-            xml = xml.replace(
-                picture_marker,
-                ""
-            )
-
-        else:
-            raise RuntimeError(
-                f"알 수 없는 그림 옵션입니다: {picture_option}"
-            )
+            else:
+                picture_area = """
+                <hp:p>
+                    <hp:run><hp:t>┌────────────────────────────────────┐</hp:t></hp:run>
+                </hp:p>
+                <hp:p>
+                    <hp:run><hp:t>│</hp:t></hp:run>
+                </hp:p>
+                <hp:p>
+                    <hp:run><hp:t>│              그림 삽입 공간</hp:t></hp:run>
+                </hp:p>
+                <hp:p>
+                    <hp:run><hp:t>│</hp:t></hp:run>
+                </hp:p>
+                <hp:p>
+                    <hp:run><hp:t>└────────────────────────────────────┘</hp:t></hp:run>
+                </hp:p>
+                """
+                xml = xml.replace(picture_marker, picture_area, 1)
 
         # 수정된 XML 자체 검증
         try:
@@ -1479,21 +1384,9 @@ def create_notice_hwpx(
             "{{전화번호}}", "{{관리소명}}"
         ]
 
-        # 그림 없음 선택 시 그림영역이 완전히 삭제되었는지 확인
-        if picture_option == "그림 없음":
-
-            if "{{그림영역}}" in xml:
-                raise RuntimeError(
-                    "그림 없음 선택 후 {{그림영역}}이 남아 있습니다."
-                )
-
-        
         # {{항목명}}, {{입력내용}}은 0개여야 한다.
         if "{{항목명}}" in xml or "{{입력내용}}" in xml:
             raise RuntimeError("사용자 지정 항목 치환이 완료되지 않았습니다.")
-
-        if "{{그림영역}}" in xml:
-            raise RuntimeError("그림 삽입 영역 치환이 완료되지 않았습니다.")
 
         for marker in [
             "{{제목}}",
