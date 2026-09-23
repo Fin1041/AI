@@ -1167,55 +1167,100 @@ def create_notice_hwpx(
             )
 
         for idx in range(5):
+
             match = target_indices[0]
             paragraph = match.group(0)
+
             if idx < len(custom_fields):
+
                 label, value = custom_fields[idx]
-                safe_label = html.escape(str(label), quote=False)
-                safe_value = html.escape(str(value), quote=False)
+
+                safe_label = html.escape(
+                    str(label),
+                    quote=False
+                )
+
+                safe_value = html.escape(
+                    str(value),
+                    quote=False
+                )
+
+                # 항목명과 입력내용이 모두 입력된 경우에만 표시
+                if label and value:
+
+                    display_text = (
+                        f"{idx + 1}. {label} : {value}"
+                    )
+
+                    safe_display = html.escape(
+                        display_text,
+                        quote=False
+                    )
+
+                    new_paragraph = paragraph.replace(
+                        "{{항목명}} {{입력내용}}",
+                        safe_display,
+                        1
+                    )
+
+                    new_paragraph = new_paragraph.replace(
+                        "{{항목명}}",
+                        safe_label,
+                        1
+                    )
+
+                    new_paragraph = new_paragraph.replace(
+                        "{{입력내용}}",
+                        safe_value,
+                        1
+                    )
+
+                    xml = (
+                        xml[:match.start()]
+                        + new_paragraph
+                        + xml[match.end():]
+                    )
+
+                else:
+
+                    # 항목명 또는 입력내용이 비어 있으면
+                    # 해당 문단 자체를 통째로 삭제한다.
+                    xml = (
+                        xml[:match.start()]
+                        + xml[match.end():]
+                    )
+
             else:
-                # 입력하지 않은 나머지 행은 문단 전체를 비워 표시되지 않게 한다.
-                label = ""
-                value = ""
-                safe_label = ""
-                safe_value = ""
 
-            # 같은 문단의 두 placeholder를
-            # "1. 항목명 : 입력내용" 형식으로 표시한다.
-            if label and value:
-                display_text = f"{idx + 1}. {label} : {value}"
-                safe_display = html.escape(display_text, quote=False)
-                new_paragraph = paragraph.replace("{{항목명}} {{입력내용}}", safe_display, 1)
-                new_paragraph = new_paragraph.replace("{{항목명}}", safe_label, 1)
-                new_paragraph = new_paragraph.replace("{{입력내용}}", safe_value, 1)
-            else:
-                # 입력하지 않은 행은 실제 표시가 남지 않도록 완전히 비운다.
-                new_paragraph = paragraph.replace("{{항목명}}", "", 1)
-                new_paragraph = new_paragraph.replace("{{입력내용}}", "", 1)
+                # 5개 미만으로 입력한 경우
+                # 남은 항목 문단 자체를 모두 삭제한다.
+                xml = (
+                    xml[:match.start()]
+                    + xml[match.end():]
+                )
 
-            # 원본 xml에서 뒤쪽부터 바꿔 위치가 틀어지지 않도록
-            # 치환 대상 5개를 뒤에서부터 적용한다.
-            xml = (
-                xml[:match.start()]
-                + new_paragraph
-                + xml[match.end():]
-            )
-
-            # 앞의 치환으로 match 위치가 변했으므로 다음 반복에서
-            # 다시 현재 XML 기준으로 항목 문단을 찾는다.
+            # 다음 항목을 현재 XML에서 다시 찾는다.
             if idx < 4:
+
                 paragraphs = list(
                     re.finditer(
-                        r"<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?</hp:p>",
+                        r"<hp:p\b[^>]*>"
+                        r"(?:(?!<hp:p\b)[\s\S])*?"
+                        r"</hp:p>",
                         xml,
                         re.DOTALL
                     )
                 )
+
                 target_indices = [
-                    m for m in paragraphs
-                    if "{{항목명}}" in m.group(0) and "{{입력내용}}" in m.group(0)
+                    m
+                    for m in paragraphs
+                    if "{{항목명}}" in m.group(0)
+                    and "{{입력내용}}" in m.group(0)
                 ]
 
+                if not target_indices:
+                    break
         # -------------------------------------------------
         # 안내내용1~5
         # 기존 문단과 run 구조를 유지하면서 텍스트만 교체한다.
@@ -1259,28 +1304,67 @@ def create_notice_hwpx(
             paragraph = paragraph[:t.start()] + new_t + paragraph[t.end():]
             xml = xml[:p.start()] + paragraph + xml[p.end():]
 
-            # -------------------------------------------------
-            # 그림 삽입 공간 처리
-            # 위치: 안내내용 + 사용자 입력 항목 마지막 아래
-            # 전화번호 / 관리소명 위
-            # -------------------------------------------------
+        # -------------------------------------------------
+        # 그림 삽입 영역 처리
+        # -------------------------------------------------
 
-            picture_marker = "{{그림영역}}"
+        picture_marker = "{{그림영역}}"
+
+        if picture_marker in xml:
 
             if picture_option == "그림 없음":
 
-                # {{그림영역}}이 들어있는 표 전체 삭제
-                picture_start = xml.rfind("<hp:tbl", 0, xml.find(picture_marker))
-                picture_end = xml.find("</hp:tbl>", xml.find(picture_marker))
+                # {{그림영역}}을 포함하고 있는 실제 표(hp:tbl)와
+                # 그 표를 감싸고 있는 문단(hp:p)을 통째로 삭제한다.
+                marker_pos = xml.find(picture_marker)
 
-                if picture_start != -1 and picture_end != -1:
-                    picture_end += len("</hp:tbl>")
-                    xml = xml[:picture_start] + xml[picture_end:]
+                table_start = xml.rfind(
+                    "<hp:tbl",
+                    0,
+                    marker_pos
+                )
+
+                table_end = xml.find(
+                    "</hp:tbl>",
+                    marker_pos
+                )
+
+                if table_start == -1 or table_end == -1:
+                    raise RuntimeError(
+                        "{{그림영역}} 표 구조를 찾지 못했습니다."
+                    )
+
+                table_end += len("</hp:tbl>")
+
+                paragraph_start = xml.rfind(
+                    "<hp:p",
+                    0,
+                    table_start
+                )
+
+                paragraph_end = xml.find(
+                    "</hp:p>",
+                    table_end
+                )
+
+                if paragraph_start == -1 or paragraph_end == -1:
+                    raise RuntimeError(
+                        "{{그림영역}}을 포함한 문단 구조를 찾지 못했습니다."
+                    )
+
+                paragraph_end += len("</hp:p>")
+
+                # 그림 표 + 그림 표를 감싸는 문단 전체 삭제
+                xml = (
+                    xml[:paragraph_start]
+                    + xml[paragraph_end:]
+                )
 
             else:
 
-                # 그림 삽입 선택 시에는 그림영역 표를 그대로 유지
-                # 단, 내부의 {{그림영역}} 글자만 삭제
+                # 그림 삽입 선택 시에는
+                # 실제 그림 삽입용 표를 그대로 유지하고
+                # placeholder 글자만 제거한다.
                 xml = xml.replace(
                     picture_marker,
                     "",
@@ -1302,6 +1386,23 @@ def create_notice_hwpx(
             "{{전화번호}}", "{{관리소명}}"
         ]
 
+        # 그림 없음 선택 시 그림영역이 완전히 삭제되었는지 확인
+        if picture_option == "그림 없음":
+
+            if "{{그림영역}}" in xml:
+                raise RuntimeError(
+                    "그림 없음 선택 후 {{그림영역}}이 남아 있습니다."
+                )
+
+            if "<hp:tbl" in xml:
+                # 그림영역 표가 남아있는지 추가 확인
+                marker_pos = xml.find("{{그림영역}}")
+
+                if marker_pos != -1:
+                    raise RuntimeError(
+                        "그림영역 표가 정상적으로 삭제되지 않았습니다."
+                    )
+        
         # {{항목명}}, {{입력내용}}은 0개여야 한다.
         if "{{항목명}}" in xml or "{{입력내용}}" in xml:
             raise RuntimeError("사용자 지정 항목 치환이 완료되지 않았습니다.")
