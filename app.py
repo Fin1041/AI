@@ -985,7 +985,17 @@ def generate_notice_text_with_law(
 요청: {request_text}
 법령 근거: {law_context if law_context else "확인된 법령 근거 없음"}
 
-규칙: 제목 15자 이하, 본문 최대 5줄. 각 줄은 짧고 읽기 쉽게 작성한다. 건명→필요성→법령근거→협조사항 순으로 구성한다. 확인된 법령만 사용하고 조문을 임의로 만들지 않는다. 일시·업체·전화번호·관리소명은 본문에서 반복하지 않는다.
+규칙:
+- 제목은 15자 이하로 작성한다.
+- 본문은 최대 5줄로 작성한다.
+- 각 줄은 짧고 읽기 쉽게 작성한다.
+- 안내내용은 요청사항과 확인된 법령 근거를 바탕으로 작성한다.
+- 확인된 법령만 사용하고 조문을 임의로 만들지 않는다.
+- 매우 중요: 사용자가 별도로 입력한 "항목명"과 "입력내용"은 안내문 아래의 "항목" 영역에만 표시한다.
+- 사용자가 직접 입력한 항목명·입력내용은 [본문]에 절대 반복하거나 복사하지 않는다.
+- 본문에는 사용자 입력 항목의 값(건명, 장소, 일시, 업체명, 기타 입력내용 등)을 넣지 않는다.
+- 전화번호와 관리소명도 본문에 반복하지 않는다.
+- 본문은 항목과 별개의 안내 문구만 작성한다.
 
 출력:
 [제목]
@@ -1062,6 +1072,15 @@ def generate_notice_text_with_law(
         for x in body.splitlines()
         if x.strip()
     ][:5]
+
+    # 사용자가 직접 입력한 항목명/입력내용이 안내내용에 다시 노출되지 않도록
+    # 생성된 본문에서 동일한 입력값이 단독으로 반복되는 경우 제거한다.
+    # 실제 항목값은 아래 "항목" 영역에서만 표시한다.
+    generated_field_values = []
+    if isinstance(request_text, str):
+        # request_text에는 이제 사용자 입력 항목이 포함되지 않으므로
+        # 일반 요청문과의 충돌을 방지하기 위해 별도 제거는 하지 않는다.
+        pass
 
     return title or (subject[:15] or "안내문"), lines
 
@@ -1667,7 +1686,7 @@ def show_notice_generator():
             ):
                 title, body_lines = (
                     generate_notice_text_with_law(
-                        request_text + "\n\n[안내문 기본항목]\n" + field_summary,
+                        request_text,
                         subject,
                         law_context
                     )
