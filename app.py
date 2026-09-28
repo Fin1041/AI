@@ -971,28 +971,93 @@ law.go.kr 기준을 우선하되, 실제 확인하지 못한 법령명·조문�
 def generate_notice_text_with_law(
     request_text,
     subject,
-    law_context
+    law_context,
+    custom_fields=None
 ):
     """
     제목 15자 이하 + 최대 5줄.
-    법령 근거가 실제 확인된 경우 본문 1줄에 직접 포함.
+
+    사용자 지정 항목/입력내용은 안내문 작성의 참고자료로만 사용하고,
+    최종 안내내용 본문에는 항목명과 입력내용을 그대로 반복하지 않는다.
     """
+
+    custom_fields = custom_fields or []
+
+    field_summary = "\n".join(
+        f"- {label}: {value}"
+        for label, value in custom_fields
+    )
 
     prompt = f"""
 너는 공동주택 관리사무소의 공식 안내문 작성 담당자다.
 
-건명: {subject}
-요청: {request_text}
-법령 근거: {law_context if law_context else "확인된 법령 근거 없음"}
+[안내문 작성 요청]
+{request_text}
 
-규칙: 제목 15자 이하, 본문 최대 5줄. 각 줄은 짧고 읽기 쉽게 작성한다. 건명→필요성→법령근거→협조사항 순으로 구성한다. 확인된 법령만 사용하고 조문을 임의로 만들지 않는다. 일시·업체·전화번호·관리소명은 본문에서 반복하지 않는다.
+[건명]
+{subject}
 
-출력:
+[사용자가 입력한 항목 및 내용]
+{field_summary if field_summary else "없음"}
+
+[법령 근거]
+{law_context if law_context else "확인된 법령 근거 없음"}
+
+━━━━━━━━━━━━━━━━━━━━━━
+중요한 작성 원칙
+━━━━━━━━━━━━━━━━━━━━━━
+
+1. '사용자가 입력한 항목 및 내용'은 안내문 작성을 위한 참고자료다.
+
+2. 사용자 입력 항목의 이름을 안내내용 본문에서 그대로 다시 쓰지 않는다.
+
+3. 사용자 입력내용을 안내내용 본문에서 그대로 반복하지 않는다.
+
+4. 다음과 같이 입력자료를 단순 나열하는 형태로 작성하지 않는다.
+   - 작업장소: 지하 기계실
+   - 작업일시: 2026년 9월 10일 09:00~17:00
+   - 업체명: ○○업체
+   - 기타: 관리사무소 문의
+
+5. 항목명과 입력내용은 별도의 정보 영역에서 이미 표시되므로
+   안내내용에서는 같은 정보를 다시 나열하지 않는다.
+
+6. 안내내용은 사용자가 입력한 내용을 단순 복사하는 것이 아니라,
+   해당 내용을 바탕으로 주민에게 필요한 안내·주의사항·협조사항을
+   자연스러운 문장으로 작성한다.
+
+7. 날짜, 시간, 장소, 업체명, 전화번호 등 구체적인 사용자 입력값을
+   안내내용에 반복해서 넣지 않는다.
+
+8. 안내문을 이해하는 데 반드시 필요한 경우에도 사용자 입력내용을
+   그대로 복사하지 말고 자연스럽게 표현한다.
+
+9. 확인된 법령이 있는 경우에만 법령 근거를 반영한다.
+   확인되지 않은 법령이나 조문은 절대 만들어내지 않는다.
+
+10. 제목은 15자 이하로 작성한다.
+
+11. 본문은 최대 5줄로 작성한다.
+
+12. 본문은 짧고 읽기 쉽게 작성한다.
+
+13. 안내내용은 다음 흐름을 기본으로 한다.
+    안내 목적 → 주민 주의사항 → 협조사항
+
+14. 제목이나 본문에 [제목], [본문] 외의 설명을 넣지 않는다.
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+출력 형식:
+
 [제목]
-15자 이하
+15자 이하의 제목
+
 [본문]
-최대 5줄
+최대 5줄의 안내내용
 """
+
+    text = ""
 
     for attempt in range(3):
         try:
@@ -1000,6 +1065,7 @@ def generate_notice_text_with_law(
                 model="gemini-3.1-flash-lite",
                 contents=prompt
             )
+
             text = (
                 response.text
                 or ""
@@ -1051,7 +1117,7 @@ def generate_notice_text_with_law(
 
     # 번호/불릿 제거
     body = re.sub(
-        r"^\s*(?:[-•·]|\d+[\.\)])\s*",
+        r"^\s*(?:[-•·]|\d+[\.)])\s*",
         "",
         body,
         flags=re.MULTILINE
@@ -1063,8 +1129,48 @@ def generate_notice_text_with_law(
         if x.strip()
     ][:5]
 
-    return title or (subject[:15] or "안내문"), lines
+    # ---------------------------------------------------------
+    # 사용자 입력 항목/내용이 안내내용에 그대로 반복되는 경우 제거
+    # ---------------------------------------------------------
+    forbidden_texts = []
 
+    for label, value in custom_fields:
+        label = str(label).strip()
+        value = str(value).strip()
+
+        if label:
+            forbidden_texts.append(label)
+
+        if value:
+            forbidden_texts.append(value)
+
+        if label and value:
+            forbidden_texts.append(f"{label}: {value}")
+            forbidden_texts.append(f"{label} : {value}")
+
+    cleaned_lines = []
+
+    for line in lines:
+        check_line = re.sub(r"\s+", "", line)
+        is_duplicate = False
+
+        for forbidden in forbidden_texts:
+            check_forbidden = re.sub(
+                r"\s+",
+                "",
+                forbidden
+            )
+
+            if check_forbidden and check_forbidden in check_line:
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            cleaned_lines.append(line)
+
+    lines = cleaned_lines[:5]
+
+    return title or (subject[:15] or "안내문"), lines
 
 def create_notice_hwpx(
     template_path,
@@ -1667,9 +1773,10 @@ def show_notice_generator():
             ):
                 title, body_lines = (
                     generate_notice_text_with_law(
-                        request_text + "\n\n[안내문 기본항목]\n" + field_summary,
+                        request_text,
                         subject,
-                        law_context
+                        law_context,
+                        custom_fields
                     )
                 )
 
