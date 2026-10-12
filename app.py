@@ -1595,7 +1595,7 @@ def show_notice_generator():
     
     phone = st.text_input(
        "⑨ 전화번호",
-        placeholder="예: 053-123-4567",
+        placeholder="예: 000-123-4567",
         key="notice_phone_law"
     )
 
