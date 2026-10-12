@@ -26,7 +26,7 @@ from pypdf import PdfReader
 # =========================================================
 
 st.set_page_config(
-    page_title="주택관리공단 대구경북지사",
+    page_title="주택관리공단",
     page_icon=" ",
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -533,7 +533,7 @@ with col2:
     st.markdown(
         """
         <div style="font-size:26px; font-weight:700; padding-top:12px;">
-            대구경북지사 AI 업무비서
+            AI 업무비서
         </div>
         """,
         unsafe_allow_html=True
@@ -1867,7 +1867,7 @@ if st.session_state.selected_file is None:
 
         st.markdown(
             '<div class="ai-greeting">'
-            '대구경북지사 직원 여러분 안녕하세요^^<br>'
+            '주택관리공단 직원 여러분 안녕하세요^^<br>'
             '무엇을 도와드릴까요?'
             '</div>',
             unsafe_allow_html=True
